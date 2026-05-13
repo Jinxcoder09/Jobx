@@ -10,7 +10,7 @@ motor==3.6.0
 openai==1.58.1
 
 # ── Settings / validation ─────────────────────────────────────────────────────
-pydantic==2.10.3
+pydantic>=2.10.3,<3
 pydantic-core==2.46.4
 pydantic-settings==2.7.0
 
