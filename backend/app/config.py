@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # Server
     PORT: int = 3001
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:4173,https://jobx-delta.vercel.app/dashboard"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:4173,https://jobx-delta.vercel.app"
 
     @property
     def cors_origins_list(self) -> list[str]:
