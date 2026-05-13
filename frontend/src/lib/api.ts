@@ -58,12 +58,13 @@ export function useListResumes(): UseQueryResult<ResumeSummary[], Error> & { que
 
 export function useGetResume(
   id: string,
+  options?: { query?: { enabled?: boolean; queryKey?: QueryKey } },
 ): UseQueryResult<Resume, Error> & { queryKey: QueryKey } {
-  const queryKey = getGetResumeQueryKey(id);
+  const queryKey = options?.query?.queryKey ?? getGetResumeQueryKey(id);
   const query = useQuery<Resume, Error>({
     queryKey,
     queryFn: () => apiFetch<Resume>(`/api/resumes/${id}`),
-    enabled: !!id,
+    enabled: options?.query?.enabled ?? !!id,
   });
   return { ...query, queryKey };
 }
