@@ -12,7 +12,6 @@ openai==1.58.1
 # ── Settings / validation ─────────────────────────────────────────────────────
 pydantic==2.10.3
 pydantic-core==2.46.4
-pydantic-core --prefer-binary
 pydantic-settings==2.7.0
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
