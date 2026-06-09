@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ThemeToggle } from "./ThemeToggle";
-import { FileText, LayoutGrid, Sparkles, Home } from "lucide-react";
+import { FileText, LayoutGrid, Sparkles, Home, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [loc] = useLocation();
+  const [open, setOpen] = useState(false);
   const isBuilder = loc.startsWith("/builder") || loc.startsWith("/preview");
   if (isBuilder) return <>{children}</>;
   return (
@@ -18,7 +22,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               job<span className="text-primary">X</span>
             </span>
           </Link>
-          <nav className="flex items-center gap-1">
+          
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-1">
             <NavLink href="/" active={loc === "/"} icon={<Home className="size-3.5" />}>
               Home
             </NavLink>
@@ -30,6 +36,62 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </NavLink>
             <ThemeToggle />
           </nav>
+
+          {/* Mobile Navigation Trigger */}
+          <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
+            <Sheet open={open} onOpenChange={setOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Open menu">
+                  <Menu className="size-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[280px] p-6 flex flex-col gap-6">
+                <SheetHeader className="text-left">
+                  <SheetTitle className="flex items-center gap-2 font-bold tracking-tight text-lg">
+                    <span className="relative inline-flex size-8 rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground items-center justify-center shadow-lg shadow-primary/20">
+                      <Sparkles className="size-4" />
+                    </span>
+                    <span>
+                      job<span className="text-primary">X</span>
+                    </span>
+                  </SheetTitle>
+                </SheetHeader>
+                <nav className="flex flex-col gap-3 mt-4">
+                  <Link
+                    href="/"
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-base font-medium transition hover:bg-muted ${
+                      loc === "/" ? "bg-accent/10 text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    <Home className="size-5" />
+                    Home
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-base font-medium transition hover:bg-muted ${
+                      loc.startsWith("/dashboard") ? "bg-accent/10 text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    <FileText className="size-5" />
+                    My Resumes
+                  </Link>
+                  <Link
+                    href="/templates"
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-base font-medium transition hover:bg-muted ${
+                      loc.startsWith("/templates") ? "bg-accent/10 text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    <LayoutGrid className="size-5" />
+                    Templates
+                  </Link>
+                </nav>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </header>
       <main className="flex-1">{children}</main>
