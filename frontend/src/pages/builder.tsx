@@ -12,6 +12,8 @@ import {
   useAiFixGrammar,
   useAiAtsScore,
   useAiParseResume,
+  exportResumeAsPdf,
+  exportResumeAsDocx,
   type Resume,
   type ResumeData,
   type Theme,
@@ -22,8 +24,6 @@ import {
   type SimpleItem,
   type LanguageItem,
   type CustomSection,
-  exportResumeAsPdf,
-  exportResumeAsDocx,
 } from "@/lib/api";
 import { extractTextFromFile } from "@/lib/fileImport";
 import { sampleData } from "@/lib/defaults";
@@ -87,7 +87,6 @@ import {
 import { toast } from "sonner";
 import { FONT_OPTIONS, SECTION_LABELS, uid } from "@/lib/types";
 import { defaultTheme, emptyData } from "@/lib/defaults";
-
 import { motion, AnimatePresence } from "framer-motion";
 
 type ActiveSection =
@@ -249,20 +248,8 @@ export default function Builder() {
         onScoreOpen={() => setScoreOpen(true)}
         onLoadSample={() => patchData(sampleData())}
         onPreview={() => window.open(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/preview/${draft.id}`, "_blank")}
-        onExportPdf={() => {
-          toast.promise(exportResumeAsPdf(draft), {
-            loading: "Generating PDF...",
-            success: "PDF downloaded!",
-            error: (err) => err?.message || "Failed to generate PDF",
-          });
-        }}
-        onExportDocx={() => {
-          toast.promise(exportResumeAsDocx(draft), {
-            loading: "Generating DOCX...",
-            success: "DOCX downloaded!",
-            error: (err) => err?.message || "Failed to generate DOCX",
-          });
-        }}
+        onExportPdf={() => exportResumeAsPdf(draft).catch((e) => toast.error(e.message))}
+        onExportDocx={() => exportResumeAsDocx(draft).catch((e) => toast.error(e.message))}
         onBack={() => setLoc("/dashboard")}
         onReorderOpen={() => setReorderOpen(true)}
       />
@@ -579,10 +566,10 @@ function TopBar({
             <DropdownMenuLabel>Download</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onExportPdf}>
-              <FileDown className="size-4 mr-2" /> PDF Document
+              <FileDown className="size-4 mr-2" /> PDF
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onExportDocx}>
-              <FileDown className="size-4 mr-2" /> Word Document (DOCX)
+              <FileDown className="size-4 mr-2" /> DOCX
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onPreview}>

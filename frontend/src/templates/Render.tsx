@@ -502,22 +502,25 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false }: Props
   const pageRef = useRef<HTMLDivElement>(null);
   const [pages, setPages] = useState(1);
   const [pageHeightPx, setPageHeightPx] = useState(0);
-  const [actualHeight, setActualHeight] = useState(1056);
 
   useEffect(() => {
+    if (!showPageGuides) return;
     const el = pageRef.current;
     if (!el) return;
     function measure() {
       if (!el) return;
-      const widthPx = el.offsetWidth || 816;
+      const rect = el.getBoundingClientRect();
+      const widthPx = rect.width || el.offsetWidth;
+      // 8.5in container == widthPx CSS pixels at current zoom
+      // 1in == widthPx / 8.5
       const inToPx = widthPx / 8.5;
+      // Account for top/bottom padding in the content area
       const usablePageHeight = PAGE_HEIGHT_IN - 2 * PAGE_PADDING_TOP_IN;
       const onePageHeight = inToPx * usablePageHeight;
       const totalContentHeight = el.scrollHeight;
       const count = Math.max(1, Math.ceil(totalContentHeight / Math.max(1, onePageHeight)));
       setPageHeightPx(onePageHeight);
       setPages(count);
-      setActualHeight(el.offsetHeight || el.scrollHeight || 1056);
     }
     measure();
     const ro = new ResizeObserver(measure);
@@ -525,19 +528,10 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false }: Props
     return () => ro.disconnect();
   }, [showPageGuides, data, theme, templateId]);
 
-  const scaledWidth = 816 * zoom;
-  const scaledHeight = actualHeight * zoom;
-
   return (
     <div
       className="resume-page-wrap"
-      style={{
-        transform: `scale(${zoom})`,
-        transformOrigin: "top center",
-        width: `${scaledWidth}px`,
-        height: `${scaledHeight}px`,
-        display: "inline-block",
-      }}
+      style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
     >
       <div
         ref={pageRef}

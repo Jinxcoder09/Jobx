@@ -66,7 +66,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10"
+          className="flex items-end justify-between mb-10"
         >
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Your resumes</h1>
@@ -91,7 +91,7 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-2">
                   <Label>Template</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-72 overflow-auto">
+                  <div className="grid grid-cols-3 gap-2 max-h-72 overflow-auto">
                     {templates?.map((t) => (
                       <button
                         key={t.id}
@@ -147,7 +147,7 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25 }}
               >
-                <Card className="group p-5 pr-12 bg-card border-card-border hover-elevate relative">
+                <Card className="group p-5 bg-card border-card-border hover-elevate relative">
                   <Link href={`/builder/${r.id}`} className="block">
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">
                       {r.templateId}
@@ -162,7 +162,7 @@ export default function Dashboard() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-3 right-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100"
                     onClick={(e) => {
                       e.preventDefault();
                       onDelete(r.id!);

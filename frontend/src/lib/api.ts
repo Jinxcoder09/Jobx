@@ -39,6 +39,42 @@ async function apiFetch<T>(
   return res.json() as Promise<T>;
 }
 
+// ─── Document Export ──────────────────────────────────────────────────────────
+
+export async function downloadDocument(
+  endpoint: string,
+  resume: Resume,
+  extension: string
+): Promise<void> {
+  const res = await fetch(`${BASE}${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(resume),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body?.error ?? body?.detail ?? `HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${resume.title || "resume"}.${extension}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+export async function exportResumeAsPdf(resume: Resume): Promise<void> {
+  return downloadDocument("/api/resume/generate-pdf", resume, "pdf");
+}
+
+export async function exportResumeAsDocx(resume: Resume): Promise<void> {
+  return downloadDocument("/api/resume/generate-docx", resume, "docx");
+}
+
+
 // ─── Query key factories ──────────────────────────────────────────────────────
 
 export const getListResumesQueryKey   = ()         => ["/api/resumes"]          as const;
@@ -208,52 +244,6 @@ export function useAiParseResume(): UseMutationResult<
         body: JSON.stringify(data),
       }),
   });
-}
-
-// ─── Document Export Helpers ──────────────────────────────────────────────────
-
-export async function exportResumeAsPdf(resume: Resume): Promise<void> {
-  const base = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-  const res = await fetch(`${base}/api/resume/generate-pdf`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(resume),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Failed to generate PDF" }));
-    throw new Error(err.error || err.detail || "Failed to generate PDF");
-  }
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${resume.title || "resume"}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
-}
-
-export async function exportResumeAsDocx(resume: Resume): Promise<void> {
-  const base = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-  const res = await fetch(`${base}/api/resume/generate-docx`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(resume),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Failed to generate DOCX" }));
-    throw new Error(err.error || err.detail || "Failed to generate DOCX");
-  }
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${resume.title || "resume"}.docx`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
 }
 
 // ─── Re-export types for convenience (mirrors @workspace/api-client-react) ───
