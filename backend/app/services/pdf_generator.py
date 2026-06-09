@@ -38,16 +38,6 @@ def clean_url(url: str, prefix: str = "https://") -> str:
         return f"mailto:{url}"
     return f"{prefix}{url}"
 
-def hex_to_rgb(hex_str: str) -> tuple[float, float, float]:
-    hex_str = hex_str.replace("#", "").strip()
-    if len(hex_str) != 6:
-        hex_str = hex_str.ljust(6, "0")[:6]
-    r = int(hex_str[0:2], 16) / 255.0
-    g = int(hex_str[2:4], 16) / 255.0
-    b = int(hex_str[4:6], 16) / 255.0
-    return r, g, b
-
-
 # ─── Height Estimation & Story Partitioning ───────────────────────────────────
 
 def estimate_flowable_height(flowable, col_width_pts: float) -> float:
@@ -193,20 +183,14 @@ class PdfResumeBuilder:
 
 
 
-    def get_section_heading_style(self, text: str) -> List[Any]:
+    def get_section_heading_style(self, text: str) -> Paragraph:
         """Create styled section headings based on the template ID."""
         t_id = self.template_id
+        heading_text = text.upper() if t_id in ["elegant", "classic", "academic", "executive"] else text
         
-        # Heading text casing and color logic mapping to Render.tsx
-        if t_id == "bold":
-            heading_text = text
-            heading_color = self.primary_color
-        elif t_id == "technical":
-            heading_text = f"# {text}"
-            heading_color = self.accent_color
-        else:
-            heading_text = text.upper()
-            heading_color = self.accent_color
+        # Technical prefix
+        if t_id == "technical":
+            heading_text = f"# {heading_text}"
 
         style = ParagraphStyle(
             f"SecHeading_{text}",
@@ -214,22 +198,12 @@ class PdfResumeBuilder:
             fontName=self.font_name_bold,
             fontSize=self.font_size + 1.5,
             leading=(self.font_size + 1.5) * 1.3,
-            textColor=heading_color,
+            textColor=self.accent_color,
             spaceBefore=8,
             spaceAfter=4,
             keepWithNext=True,
         )
-        p = Paragraph(heading_text, style)
-        
-        if t_id in ["elegant", "classic", "academic", "executive"]:
-            accent_hex = self.theme.get("accentColor", "#2563eb")
-            r, g, b = hex_to_rgb(accent_hex)
-            border_color = colors.Color(r, g, b, alpha=0.20)
-            hr = HRFlowable(width="100%", thickness=1, color=border_color, spaceBefore=2, spaceAfter=8)
-            return [p, hr]
-            
-        return [p]
-
+        return Paragraph(heading_text, style)
 
     def get_link_html(self, text: str, url: str) -> str:
         """Return raw HTML hyperlink for ReportLab paragraphs."""
@@ -389,40 +363,6 @@ class PdfResumeBuilder:
             return flowables
 
         # Default / Modern / Creative left-aligned headers
-        if t_id == "modern":
-            style_name = ParagraphStyle(
-                "HeaderNameModern",
-                parent=self.styles["Heading1"],
-                fontName=self.font_name_bold,
-                fontSize=self.font_size + 7,
-                leading=(self.font_size + 7) * 1.2,
-                textColor=self.primary_color,
-                spaceAfter=2,
-            )
-            style_title = ParagraphStyle(
-                "HeaderTitleModern",
-                parent=self.style_normal,
-                fontName=self.font_name_bold,
-                fontSize=self.font_size,
-                textColor=self.accent_color,
-                spaceAfter=4,
-            )
-            header_flowables = [Paragraph(name, style_name)]
-            if title:
-                header_flowables.append(Paragraph(title, style_title))
-            header_flowables.append(Paragraph("   &middot;   ".join(meta), self.style_normal))
-            
-            header_table = Table([[header_flowables]], colWidths=[7.1*inch])
-            header_table.setStyle(TableStyle([
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('LEFTPADDING', (0,0), (0,0), 14),
-                ('RIGHTPADDING', (0,0), (0,0), 0),
-                ('TOPPADDING', (0,0), (0,0), 0),
-                ('BOTTOMPADDING', (0,0), (0,0), 0),
-                ('LINEBEFORE', (0,0), (0,0), 3.0, self.accent_color),
-            ]))
-            return [header_table, Spacer(1, 10)]
-
         style_name = ParagraphStyle(
             "HeaderNameDefault",
             parent=self.styles["Heading1"],
@@ -447,31 +387,24 @@ class PdfResumeBuilder:
         flowables.append(Spacer(1, 10))
         return flowables
 
-
     def build_summary(self) -> List[Any]:
         summary_text = self.data.get("summary", "")
         if not summary_text:
             return []
         
-        flowables = []
-        flowables.extend(self.get_section_heading_style("Summary"))
-        flowables.extend([
+        flowables = [
+            self.get_section_heading_style("Summary"),
             Paragraph(summary_text, self.style_normal),
             Spacer(1, self.section_spacing),
-        ])
+        ]
         return flowables
-
 
     def build_experience(self) -> List[Any]:
         exp = self.data.get("experience", [])
         if not exp:
             return []
         
-        flowables = []
-        flowables.extend(self.get_section_heading_style("Experience"))
-        t_id = self.template_id
-        is_timeline = (t_id == "timeline")
-
+        flowables = [self.get_section_heading_style("Experience")]
         for item in exp:
             company = item.get("company", "")
             role = item.get("role", "")
@@ -493,7 +426,7 @@ class PdfResumeBuilder:
             tbl_data = [
                 [Paragraph(header_left, self.style_normal), Paragraph(date_str, ParagraphStyle("DateRight", parent=self.style_normal, alignment=2))]
             ]
-            col_w = [2.9 * inch, 1.4 * inch] if is_timeline else self.get_col_widths_for_section("experience")
+            col_w = self.get_col_widths_for_section("experience")
             t = Table(tbl_data, colWidths=col_w)
             t.setStyle(TableStyle([
                 ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -512,34 +445,17 @@ class PdfResumeBuilder:
                     exp_flowables.append(Paragraph(f"&bull; {bullet}", self.style_bullet))
             
             exp_flowables.append(Spacer(1, 6))
-            
-            if is_timeline:
-                r, g, b = hex_to_rgb(self.theme.get("accentColor", "#2563eb"))
-                rail_color = colors.Color(r, g, b, alpha=0.40)
-                timeline_table = Table([[exp_flowables]], colWidths=[4.3 * inch])
-                timeline_table.setStyle(TableStyle([
-                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                    ('LEFTPADDING', (0,0), (-1,-1), 14),
-                    ('RIGHTPADDING', (0,0), (-1,-1), 0),
-                    ('TOPPADDING', (0,0), (-1,-1), 0),
-                    ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-                    ('LINEBEFORE', (0,0), (0,0), 1.5, rail_color),
-                ]))
-                exp_flowables = [timeline_table]
-                
             flowables.extend(self.keep_together_if_single_column(exp_flowables))
             
         flowables.append(Spacer(1, self.section_spacing - 6))
         return flowables
-
 
     def build_education(self) -> List[Any]:
         edu = self.data.get("education", [])
         if not edu:
             return []
         
-        flowables = []
-        flowables.extend(self.get_section_heading_style("Education"))
+        flowables = [self.get_section_heading_style("Education")]
         for item in edu:
             school = item.get("school", "")
             degree = item.get("degree", "")
@@ -594,8 +510,7 @@ class PdfResumeBuilder:
         if not proj:
             return []
         
-        flowables = []
-        flowables.extend(self.get_section_heading_style("Projects"))
+        flowables = [self.get_section_heading_style("Projects")]
         for item in proj:
             name = item.get("name", "")
             link = item.get("link", "")
@@ -628,8 +543,7 @@ class PdfResumeBuilder:
         if not skills:
             return []
         
-        flowables = []
-        flowables.extend(self.get_section_heading_style("Skills"))
+        flowables = [self.get_section_heading_style("Skills")]
         for grp in skills:
             cat = grp.get("category", "Skills")
             items = grp.get("items", [])
@@ -643,8 +557,7 @@ class PdfResumeBuilder:
         if not items:
             return []
         
-        flowables = []
-        flowables.extend(self.get_section_heading_style(heading))
+        flowables = [self.get_section_heading_style(heading)]
         for item in items:
             title = item.get("title", "")
             subtitle = item.get("subtitle", "")
@@ -683,8 +596,7 @@ class PdfResumeBuilder:
         if not langs:
             return []
         
-        flowables = []
-        flowables.extend(self.get_section_heading_style("Languages"))
+        flowables = [self.get_section_heading_style("Languages")]
         parts = []
         for l in langs:
             name = l.get("name", "")
@@ -771,13 +683,13 @@ class PdfResumeBuilder:
             for k in left_keys:
                 left_story.extend(self.build_section(k))
             # Append custom sections
-            if self.template_id == "creative":
+            if self.template_id != "creative":
                 left_story.extend(self.build_custom_sections())
 
             right_story = []
             for k in right_keys:
                 right_story.extend(self.build_section(k))
-            if self.template_id != "creative":
+            if self.template_id == "creative":
                 right_story.extend(self.build_custom_sections())
 
             # Put left and right flows inside a layout Table
@@ -805,19 +717,12 @@ class PdfResumeBuilder:
                 ('TOPPADDING', (0,0), (-1,-1), 0),
             ]
             
-            # Creative template sidebar shading and padding
+            # Creative template sidebar shading
             if self.template_id == "creative":
                 t_style.extend([
-                    ('BACKGROUND', (0,0), (0,-1), colors.HexColor(self.theme.get("accentColor", "#2563eb") + "10")), # 6.2% opacity accent
-                    ('LEFTPADDING', (0,0), (0,-1), 12),
-                    ('RIGHTPADDING', (0,0), (0,-1), 12),
-                    ('LEFTPADDING', (1,0), (1,-1), 16),
-                ])
-            else:
-                # Add gap padding between the columns
-                t_style.extend([
-                    ('RIGHTPADDING', (0,0), (0,-1), 12),
-                    ('LEFTPADDING', (1,0), (1,-1), 12),
+                    ('BACKGROUND', (0,0), (0,-1), colors.HexColor(self.theme.get("accentColor", "#2563eb") + "0a")), # 4% opacity accent
+                    ('LEFTPADDING', (0,0), (0,-1), 8),
+                    ('RIGHTPADDING', (0,0), (0,-1), 8),
                 ])
                 
             layout_table.setStyle(TableStyle(t_style))
