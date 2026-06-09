@@ -71,7 +71,7 @@ function NavLink({
     >
       <span className="inline-flex items-center gap-1.5">
         {icon}
-        {children}
+        <span className="hidden sm:inline">{children}</span>
       </span>
     </Link>
   );

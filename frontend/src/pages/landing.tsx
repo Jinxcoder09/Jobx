@@ -184,6 +184,23 @@ function FloatingCircle({ className, delay }: { className?: string; delay: numbe
 }
 
 function HeroPreview() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.62);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    function handleResize() {
+      if (!el) return;
+      const newScale = Math.min(0.62, el.offsetWidth / 816);
+      setScale(newScale);
+    }
+    handleResize();
+    const ro = new ResizeObserver(handleResize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const previewResume = useMemo(
     () => ({
       id: "hero",
@@ -206,12 +223,13 @@ function HeroPreview() {
         <FloatingChip icon={<FileDown className="size-3.5" />} text="PDF ready" />
       </div>
       <div
-        className="rounded-2xl border border-border bg-white shadow-2xl shadow-primary/10 overflow-hidden"
-        style={{ height: 460 }}
+        ref={containerRef}
+        className="rounded-2xl border border-border bg-white shadow-2xl shadow-primary/10 overflow-hidden w-full"
+        style={{ height: Math.round(742 * scale) }}
       >
         <div
           style={{
-            transform: "scale(0.62)",
+            transform: `scale(${scale})`,
             transformOrigin: "top left",
             width: "8.5in",
           }}
@@ -222,6 +240,7 @@ function HeroPreview() {
     </div>
   );
 }
+
 
 function FloatingChip({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
@@ -384,6 +403,32 @@ function TemplateMarquee({
   templates: { id: string; name: string; description?: string; accentColor: string; fontFamily: string; layout: string; category?: string }[];
   onUse: (id: string, name: string) => void;
 }) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.27);
+
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    function handleResize() {
+      if (!el) return;
+      const w = el.offsetWidth;
+      let cols = 4;
+      if (window.innerWidth < 768) {
+        cols = 2;
+      } else if (window.innerWidth < 1024) {
+        cols = 3;
+      }
+      const gap = 16;
+      const cardWidth = (w - gap * (cols - 1)) / cols;
+      const newScale = cardWidth / 816;
+      setScale(newScale);
+    }
+    handleResize();
+    const ro = new ResizeObserver(handleResize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <section className="border-t border-border bg-muted/30">
       <div className="max-w-6xl mx-auto px-6 py-20">
@@ -392,7 +437,7 @@ function TemplateMarquee({
           title="12 templates. 0 boring."
           sub="Each template is hand-tuned for clarity, ATS compatibility, and printable beauty."
         />
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-12">
+        <div ref={gridRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-12">
           {templates.slice(0, 8).map((t, i) => {
             const previewResume = {
               id: `tm-${t.id}`,
@@ -418,10 +463,10 @@ function TemplateMarquee({
                   onClick={() => onUse(t.id, t.name)}
                   className="group block w-full text-left rounded-xl bg-card border border-card-border overflow-hidden hover-elevate"
                 >
-                  <div className="bg-white relative" style={{ height: 220 }}>
+                  <div className="bg-white relative overflow-hidden" style={{ height: Math.round(815 * scale) }}>
                     <div
                       style={{
-                        transform: "scale(0.27)",
+                        transform: `scale(${scale})`,
                         transformOrigin: "top left",
                         width: "8.5in",
                       }}
@@ -443,6 +488,7 @@ function TemplateMarquee({
             );
           })}
         </div>
+
         <div className="text-center mt-8">
           <Link href="/templates">
             <Button variant="outline" className="gap-2">
