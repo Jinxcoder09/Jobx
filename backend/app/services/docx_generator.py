@@ -89,6 +89,22 @@ def add_p_bottom_border(paragraph, color_hex="CCCCCC", size=12):
     pBdr = parse_xml(f'<w:pBdr {nsdecls("w")}><w:bottom w:val="single" w:sz="{size}" w:space="4" w:color="{color_hex.replace("#", "")}"/></w:pBdr>')
     pPr.append(pBdr)
 
+def add_p_left_border(paragraph, color_hex="CCCCCC", size=12, space=10):
+    pPr = paragraph._p.get_or_add_pPr()
+    pBdr = parse_xml(f'<w:pBdr {nsdecls("w")}><w:left w:val="single" w:sz="{size}" w:space="{space}" w:color="{color_hex.replace("#", "")}"/></w:pBdr>')
+    pPr.append(pBdr)
+
+def add_p_top_bottom_borders(paragraph, color_hex="CCCCCC", size=12, space=4):
+    pPr = paragraph._p.get_or_add_pPr()
+    pBdr = parse_xml(
+        f'<w:pBdr {nsdecls("w")}>\n'
+        f'  <w:top w:val="single" w:sz="{size}" w:space="{space}" w:color="{color_hex.replace("#", "")}"/>\n'
+        f'  <w:bottom w:val="single" w:sz="{size}" w:space="{space}" w:color="{color_hex.replace("#", "")}"/>\n'
+        f'</w:pBdr>'
+    )
+    pPr.append(pBdr)
+
+
 class DocxResumeBuilder:
     def __init__(self, resume_data: dict):
         self.data = resume_data.get("data", {})
@@ -131,9 +147,17 @@ class DocxResumeBuilder:
 
     def add_section_heading(self, container, title: str):
         t_id = self.template_id
-        heading_text = title.upper() if t_id in ["elegant", "classic", "academic", "executive"] else title
-        if t_id == "technical":
-            heading_text = f"# {heading_text}"
+        
+        # Heading text casing and color logic mapping to Render.tsx
+        if t_id == "bold":
+            heading_text = title
+            heading_color = self.primary_color
+        elif t_id == "technical":
+            heading_text = f"# {title}"
+            heading_color = self.accent_color
+        else:
+            heading_text = title.upper()
+            heading_color = self.accent_color
             
         p = container.add_paragraph()
         p.paragraph_format.space_before = Pt(self.section_spacing)
@@ -141,9 +165,12 @@ class DocxResumeBuilder:
         p.paragraph_format.keep_with_next = True
         
         run = p.add_run(heading_text)
-        self.apply_run_font(run, size_offset=1, bold=True, color_rgb=self.accent_color)
+        self.apply_run_font(run, size_offset=1, bold=True, color_rgb=heading_color)
         
-        add_p_bottom_border(p, color_hex=self.accent_hex, size=8)
+        if t_id in ["elegant", "classic", "academic", "executive"]:
+            border_color = blend_with_white(self.accent_hex, alpha=0.20)
+            add_p_bottom_border(p, color_hex=border_color, size=6)
+
 
     def build_header(self, container):
         p_info = self.data.get("personal", {})
@@ -177,8 +204,7 @@ class DocxResumeBuilder:
                 run = title_p.add_run(title)
                 self.apply_run_font(run, size_offset=1, italic=True, color_rgb=self.secondary_color)
                 
-            meta_p = self.add_styled_paragraph(container, space_before=4, space_after=8, alignment=WD_ALIGN_PARAGRAPH.CENTER)
-            add_p_bottom_border(meta_p, color_hex=self.accent_hex, size=6)
+            add_p_top_bottom_borders(meta_p, color_hex=self.accent_hex, size=6)
             
             first = True
             for part in meta_parts:
@@ -264,7 +290,34 @@ class DocxResumeBuilder:
                     self.apply_run_font(run, color_rgb=self.secondary_color)
             return
 
-        # Default / Modern / Creative Header
+        # Modern Header
+        if t_id == "modern":
+            name_p = self.add_styled_paragraph(container)
+            run = name_p.add_run(name)
+            self.apply_run_font(run, size_offset=6, bold=True, color_rgb=self.primary_color)
+            add_p_left_border(name_p, color_hex=self.accent_hex, size=24, space=10)
+            
+            if title:
+                title_p = self.add_styled_paragraph(container, space_after=4)
+                run = title_p.add_run(title)
+                self.apply_run_font(run, bold=True, color_rgb=self.accent_color)
+                add_p_left_border(title_p, color_hex=self.accent_hex, size=24, space=10)
+                
+            meta_p = self.add_styled_paragraph(container, space_after=10)
+            add_p_left_border(meta_p, color_hex=self.accent_hex, size=24, space=10)
+            first = True
+            for part in meta_parts:
+                if not first:
+                    meta_p.add_run("   ·   ")
+                first = False
+                if part["type"] == "link":
+                    add_hyperlink(meta_p, part["url"], part["text"], color_hex=self.accent_hex)
+                else:
+                    run = meta_p.add_run(part["text"])
+                    self.apply_run_font(run, color_rgb=self.secondary_color)
+            return
+
+        # Default / Creative Header
         name_p = self.add_styled_paragraph(container)
         run = name_p.add_run(name)
         self.apply_run_font(run, size_offset=6, bold=True, color_rgb=self.primary_color)
@@ -286,6 +339,7 @@ class DocxResumeBuilder:
                 run = meta_p.add_run(part["text"])
                 self.apply_run_font(run, color_rgb=self.secondary_color)
 
+
     def build_summary(self, container):
         summary_text = self.data.get("summary", "")
         if not summary_text:
@@ -298,6 +352,10 @@ class DocxResumeBuilder:
         if not exp:
             return
         self.add_section_heading(container, "Experience")
+        
+        is_timeline = (self.template_id == "timeline")
+        rail_color = blend_with_white(self.accent_hex, alpha=0.40) if is_timeline else None
+
         for item in exp:
             company = item.get("company", "")
             role = item.get("role", "")
@@ -307,6 +365,8 @@ class DocxResumeBuilder:
             date_str = " – ".join(filter(None, [start, end]))
             
             p = self.add_styled_paragraph(container, space_before=4, space_after=1)
+            if is_timeline:
+                add_p_left_border(p, color_hex=rail_color, size=12, space=10)
             role_run = p.add_run(role)
             self.apply_run_font(role_run, bold=True, color_rgb=self.primary_color)
             
@@ -316,6 +376,8 @@ class DocxResumeBuilder:
                 self.apply_run_font(comp_run, color_rgb=self.secondary_color)
                 
             meta_p = self.add_styled_paragraph(container, space_before=0, space_after=2)
+            if is_timeline:
+                add_p_left_border(meta_p, color_hex=rail_color, size=12, space=10)
             meta_parts = []
             if date_str:
                 meta_parts.append(date_str)
@@ -327,11 +389,14 @@ class DocxResumeBuilder:
             for bullet in item.get("bullets", []):
                 if bullet.strip():
                     bp = container.add_paragraph(style='List Bullet')
+                    if is_timeline:
+                        add_p_left_border(bp, color_hex=rail_color, size=12, space=10)
                     bp.paragraph_format.space_before = Pt(0)
                     bp.paragraph_format.space_after = Pt(2)
                     bp.paragraph_format.line_spacing = self.line_spacing
                     bp_run = bp.add_run(bullet.strip())
                     self.apply_run_font(bp_run, color_rgb=self.secondary_color)
+
 
     def build_education(self, container):
         edu = self.data.get("education", [])
@@ -554,13 +619,14 @@ class DocxResumeBuilder:
                 
             for k in left_keys:
                 self.build_section(left_cell, k)
-            if not is_creative:
+            if is_creative:
                 self.build_custom_sections(left_cell)
                 
             for k in right_keys:
                 self.build_section(right_cell, k)
-            if is_creative:
+            if not is_creative:
                 self.build_custom_sections(right_cell)
+
         else:
             for key in order:
                 self.build_section(doc, key)
