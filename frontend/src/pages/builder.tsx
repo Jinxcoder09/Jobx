@@ -22,8 +22,6 @@ import {
   type SimpleItem,
   type LanguageItem,
   type CustomSection,
-  exportResumeAsPdf,
-  exportResumeAsDocx,
 } from "@/lib/api";
 import { extractTextFromFile } from "@/lib/fileImport";
 import { sampleData } from "@/lib/defaults";
@@ -87,7 +85,7 @@ import {
 import { toast } from "sonner";
 import { FONT_OPTIONS, SECTION_LABELS, uid } from "@/lib/types";
 import { defaultTheme, emptyData } from "@/lib/defaults";
-
+import { exportResumeAsDocx } from "@/lib/docxExport";
 import { motion, AnimatePresence } from "framer-motion";
 
 type ActiveSection =
@@ -131,33 +129,6 @@ export default function Builder() {
   const [importOpen, setImportOpen] = useState(false);
   const [scoreOpen, setScoreOpen] = useState(false);
   const [showPageGuides, setShowPageGuides] = useState(true);
-
-  // Mobile layout state
-  const [mobileTab, setMobileTab] = useState<"edit" | "preview">("edit");
-  const [reorderOpen, setReorderOpen] = useState(false);
-
-  // Dynamic preview width tracking
-  const previewContainerRef = useRef<HTMLDivElement>(null);
-  const [previewWidth, setPreviewWidth] = useState(816);
-
-  useEffect(() => {
-    if (!previewContainerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setPreviewWidth(entry.contentRect.width || 816);
-      }
-    });
-    observer.observe(previewContainerRef.current);
-    return () => observer.disconnect();
-  }, [mobileTab]);
-
-  // Calculate responsive zoom level
-  const responsiveZoom = useMemo(() => {
-    if (previewWidth <= 0) return 0.78;
-    const padding = 32; // 16px padding on left/right
-    const availableWidth = previewWidth - padding;
-    return Math.min(0.78, availableWidth / 816);
-  }, [previewWidth]);
 
   useEffect(() => {
     if (resume && !draft) {
@@ -229,9 +200,6 @@ export default function Builder() {
 
   const data = draft.data as ResumeData;
   const theme = draft.theme as Theme;
-  const order = data.sectionOrder?.length
-    ? data.sectionOrder
-    : ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -249,50 +217,19 @@ export default function Builder() {
         onScoreOpen={() => setScoreOpen(true)}
         onLoadSample={() => patchData(sampleData())}
         onPreview={() => window.open(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/preview/${draft.id}`, "_blank")}
-        onExportPdf={() => {
-          toast.promise(exportResumeAsPdf(draft), {
-            loading: "Generating PDF...",
-            success: "PDF downloaded!",
-            error: (err) => err?.message || "Failed to generate PDF",
-          });
-        }}
-        onExportDocx={() => {
-          toast.promise(exportResumeAsDocx(draft), {
-            loading: "Generating DOCX...",
-            success: "DOCX downloaded!",
-            error: (err) => err?.message || "Failed to generate DOCX",
-          });
-        }}
+        onExportDocx={() => exportResumeAsDocx(draft).catch((e) => toast.error(e.message))}
         onBack={() => setLoc("/dashboard")}
-        onReorderOpen={() => setReorderOpen(true)}
       />
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[224px_minmax(420px,520px)_1fr] min-h-0 relative">
+      <div className="flex-1 grid" style={{ gridTemplateColumns: "224px minmax(420px,520px) 1fr", minHeight: 0 }}>
         <SectionsSidebar
           data={data}
           active={active}
           onActive={setActive}
           onReorder={(order) => patchData({ sectionOrder: order })}
         />
-        <div className={`border-x border-border min-h-0 flex flex-col ${mobileTab === "edit" ? "flex" : "hidden lg:flex"}`}>
-          {/* Horizontal scrollable sections tabs (Mobile/Tablet only) */}
-          <div className="lg:hidden border-b border-border bg-sidebar px-4 py-2 overflow-x-auto flex gap-1.5 scrollbar-none shrink-0">
-            {SIDE_SECTIONS.map((s) => (
-              <button
-                key={s.key}
-                onClick={() => setActive(s.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                  active === s.key
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-
-          <ScrollArea className="flex-1 h-[calc(100vh-3.5rem)]">
-            <div className="p-4 sm:p-6">
+        <div className="border-x border-border min-h-0 flex flex-col">
+          <ScrollArea className="h-[calc(100vh-3.5rem)]">
+            <div className="p-6">
               <Editor
                 draft={draft}
                 active={active}
@@ -301,38 +238,13 @@ export default function Builder() {
             </div>
           </ScrollArea>
         </div>
-        <div
-          ref={previewContainerRef}
-          className={`bg-muted/30 min-h-0 flex flex-col flex-1 ${mobileTab === "preview" ? "flex" : "hidden lg:flex"}`}
-        >
+        <div className="bg-muted/30 min-h-0">
           <ScrollArea className="h-[calc(100vh-3.5rem)]">
-            <div className="p-4 flex justify-center items-start">
-              <ResumeRender resume={draft} zoom={responsiveZoom} showPageGuides={showPageGuides} />
+            <div className="p-6 pr-20 flex justify-center">
+              <ResumeRender resume={draft} zoom={0.78} showPageGuides={showPageGuides} />
             </div>
           </ScrollArea>
         </div>
-      </div>
-
-      {/* Mobile Tab Switcher */}
-      <div className="lg:hidden h-12 border-t border-border bg-background flex items-center justify-around no-print shrink-0">
-        <button
-          onClick={() => setMobileTab("edit")}
-          className={`flex-1 h-full flex items-center justify-center gap-2 text-sm font-medium border-r border-border transition-colors ${
-            mobileTab === "edit" ? "text-primary bg-muted/50" : "text-muted-foreground hover:bg-muted/30"
-          }`}
-        >
-          <Settings2 className="size-4" />
-          Edit
-        </button>
-        <button
-          onClick={() => setMobileTab("preview")}
-          className={`flex-1 h-full flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
-            mobileTab === "preview" ? "text-primary bg-muted/50" : "text-muted-foreground hover:bg-muted/30"
-          }`}
-        >
-          <Eye className="size-4" />
-          Preview
-        </button>
       </div>
 
       <ImportDialog
@@ -345,30 +257,6 @@ export default function Builder() {
         onOpenChange={setScoreOpen}
         data={data}
       />
-
-      {/* Section Reorder Dialog (Mobile/Tablet only) */}
-      <Dialog open={reorderOpen} onOpenChange={setReorderOpen}>
-        <DialogContent className="max-w-md w-[95vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Reorder resume sections</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="px-1">
-              <SortableSectionList ids={order} onReorder={(next) => patchData({ sectionOrder: next })}>
-                {(sid, handle) => (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-md hover-elevate border border-border bg-card text-sm mb-2">
-                    {handle}
-                    <span className="capitalize">{SECTION_LABELS[sid] || sid}</span>
-                  </div>
-                )}
-              </SortableSectionList>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setReorderOpen(false)} className="w-full sm:w-auto">Done</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -387,10 +275,8 @@ function TopBar({
   onScoreOpen,
   onLoadSample,
   onPreview,
-  onExportPdf,
   onExportDocx,
   onBack,
-  onReorderOpen,
 }: {
   draft: Resume;
   templates: { id: string; name: string }[];
@@ -405,23 +291,21 @@ function TopBar({
   onScoreOpen: () => void;
   onLoadSample: () => void;
   onPreview: () => void;
-  onExportPdf: () => void;
   onExportDocx: () => void;
   onBack: () => void;
-  onReorderOpen: () => void;
 }) {
   const theme = draft.theme as Theme;
   return (
     <div className="h-14 border-b border-border bg-background/90 backdrop-blur sticky top-0 z-30 flex items-center px-3 gap-2 no-print">
-      <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back" className="shrink-0">
+      <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back">
         <ChevronLeft className="size-5" />
       </Button>
       <Input
         value={draft.title || ""}
         onChange={(e) => onTitle(e.target.value)}
-        className="h-9 w-32 sm:w-44 font-medium"
+        className="h-9 max-w-xs font-medium"
       />
-      <span className="text-xs text-muted-foreground ml-2 hidden sm:inline-flex items-center gap-1 shrink-0">
+      <span className="text-xs text-muted-foreground ml-2 inline-flex items-center gap-1">
         {saving ? (
           <>
             <Loader2 className="size-3 animate-spin" /> Saving…
@@ -436,7 +320,7 @@ function TopBar({
       </span>
       <div className="ml-auto flex items-center gap-1">
         <Select value={draft.templateId} onValueChange={onTemplate}>
-          <SelectTrigger className="h-9 w-28 sm:w-36 md:w-44 shrink-0">
+          <SelectTrigger className="h-9 w-44">
             <SelectValue placeholder="Template" />
           </SelectTrigger>
           <SelectContent>
@@ -448,10 +332,7 @@ function TopBar({
 
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" className="gap-1.5 px-2 md:px-3">
-              <Settings2 className="size-4" />
-              <span className="hidden md:inline">Customize</span>
-            </Button>
+            <Button variant="ghost" className="gap-1.5"><Settings2 className="size-4" /> Customize</Button>
           </SheetTrigger>
           <SheetContent>
             <SheetHeader>
@@ -516,73 +397,35 @@ function TopBar({
           </SheetContent>
         </Sheet>
 
-        {/* Desktop-only individual buttons */}
         <Button
           variant={showPageGuides ? "secondary" : "ghost"}
-          className="gap-1.5 hidden lg:inline-flex"
+          className="gap-1.5"
           onClick={onTogglePageGuides}
           title="Toggle page-break guides"
         >
           <FileDown className="size-4" /> Pages
         </Button>
-        <Button variant="ghost" className="gap-1.5 hidden lg:inline-flex" onClick={onScoreOpen}>
+        <Button variant="ghost" className="gap-1.5" onClick={onScoreOpen}>
           <ListChecks className="size-4" /> ATS Score
         </Button>
-        <Button variant="ghost" className="gap-1.5 hidden lg:inline-flex" onClick={onImportOpen}>
+        <Button variant="ghost" className="gap-1.5" onClick={onImportOpen}>
           <Upload className="size-4" /> Import
         </Button>
-        <Button variant="ghost" className="gap-1.5 hidden lg:inline-flex" onClick={onLoadSample} title="Load sample data">
+        <Button variant="ghost" className="gap-1.5" onClick={onLoadSample} title="Load sample data">
           <Sparkles className="size-4" /> Sample
         </Button>
-
-        {/* Tools Dropdown Menu (Mobile/Tablet only) */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="lg:hidden gap-1.5 px-2 md:px-3">
-              <Wand2 className="size-4" />
-              <span className="hidden sm:inline">Tools</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onTogglePageGuides}>
-              <FileDown className="size-4 mr-2" />
-              {showPageGuides ? "Hide page guides" : "Show page guides"}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onScoreOpen}>
-              <ListChecks className="size-4 mr-2" />
-              ATS Score
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onImportOpen}>
-              <Upload className="size-4 mr-2" />
-              Import resume
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onLoadSample}>
-              <Sparkles className="size-4 mr-2" />
-              Load sample
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onReorderOpen}>
-              <Settings2 className="size-4 mr-2" />
-              Reorder sections
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="default" className="gap-1.5 px-2 md:px-3">
-              <Download className="size-4" />
-              <span className="hidden md:inline">Export</span>
-            </Button>
+            <Button variant="default" className="gap-1.5"><Download className="size-4" /> Export</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Download</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onExportPdf}>
-              <FileDown className="size-4 mr-2" /> PDF Document
+            <DropdownMenuItem onClick={onPreview}>
+              <FileDown className="size-4 mr-2" /> PDF (print)
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onExportDocx}>
-              <FileDown className="size-4 mr-2" /> Word Document (DOCX)
+              <FileDown className="size-4 mr-2" /> DOCX
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onPreview}>
@@ -1332,7 +1175,7 @@ function ImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Import an existing resume</DialogTitle>
         </DialogHeader>
@@ -1452,7 +1295,7 @@ function AtsScoreDialog({ open, onOpenChange, data }: { open: boolean; onOpenCha
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>ATS Score</DialogTitle>
         </DialogHeader>

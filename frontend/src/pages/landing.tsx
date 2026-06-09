@@ -194,25 +194,8 @@ function HeroPreview() {
     }),
     [],
   );
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.62);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = entry.contentRect.width;
-        const calculatedScale = Math.min(0.62, w / 816);
-        setScale(calculatedScale);
-      }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative">
       <div className="absolute -top-8 -left-8 hidden md:block">
         <ScoreOrb score={92} label="ATS Score" />
       </div>
@@ -224,11 +207,11 @@ function HeroPreview() {
       </div>
       <div
         className="rounded-2xl border border-border bg-white shadow-2xl shadow-primary/10 overflow-hidden"
-        style={{ height: Math.round(740 * scale) }}
+        style={{ height: 460 }}
       >
         <div
           style={{
-            transform: `scale(${scale})`,
+            transform: "scale(0.62)",
             transformOrigin: "top left",
             width: "8.5in",
           }}
@@ -278,7 +261,7 @@ function ScoreOrb({ score, label }: { score: number; label: string }) {
 function Stats() {
   return (
     <section className="border-y border-border bg-muted/30">
-      <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-6">
         <StatBig number={124} suffix="K" label="Resumes built" />
         <StatBig number={92} suffix="%" label="Pass ATS scans" />
         <StatBig number={12} label="Templates" />
@@ -394,71 +377,6 @@ function Features() {
 
 /* ───────── Templates marquee ───────── */
 
-function TemplateCard({
-  t,
-  onUse,
-}: {
-  t: { id: string; name: string; accentColor: string; fontFamily: string; layout: string };
-  onUse: (id: string, name: string) => void;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.27);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = entry.contentRect.width;
-        const calculatedScale = Math.min(0.27, w / 816);
-        setScale(calculatedScale);
-      }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  const previewResume = useMemo(() => ({
-    id: `tm-${t.id}`,
-    title: t.name,
-    templateId: t.id,
-    theme: {
-      ...defaultTheme(),
-      accentColor: t.accentColor,
-      fontFamily: t.fontFamily,
-      layout: t.layout as "single" | "two-column",
-    },
-    data: sampleData(),
-  }), [t]);
-
-  return (
-    <button
-      onClick={() => onUse(t.id, t.name)}
-      className="group block w-full text-left rounded-xl bg-card border border-card-border overflow-hidden hover-elevate"
-    >
-      <div className="bg-white relative overflow-hidden" style={{ height: Math.round(816 * scale) }} ref={containerRef}>
-        <div
-          style={{
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-            width: "8.5in",
-          }}
-        >
-          <ResumeRender resume={previewResume as never} />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-3">
-          <span className="text-white text-xs font-semibold inline-flex items-center gap-1">
-            Use template <ArrowRight className="size-3" />
-          </span>
-        </div>
-      </div>
-      <div className="p-3 flex items-center justify-between">
-        <div className="text-sm font-semibold">{t.name}</div>
-        <span className="size-3 rounded-full" style={{ background: t.accentColor }} />
-      </div>
-    </button>
-  );
-}
-
 function TemplateMarquee({
   templates,
   onUse,
@@ -475,17 +393,55 @@ function TemplateMarquee({
           sub="Each template is hand-tuned for clarity, ATS compatibility, and printable beauty."
         />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-12">
-          {templates.slice(0, 8).map((t, i) => (
-            <motion.div
-              key={t.id}
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.04, duration: 0.3 }}
-            >
-              <TemplateCard t={t} onUse={onUse} />
-            </motion.div>
-          ))}
+          {templates.slice(0, 8).map((t, i) => {
+            const previewResume = {
+              id: `tm-${t.id}`,
+              title: t.name,
+              templateId: t.id,
+              theme: {
+                ...defaultTheme(),
+                accentColor: t.accentColor,
+                fontFamily: t.fontFamily,
+                layout: t.layout as "single" | "two-column",
+              },
+              data: sampleData(),
+            };
+            return (
+              <motion.div
+                key={t.id}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.04, duration: 0.3 }}
+              >
+                <button
+                  onClick={() => onUse(t.id, t.name)}
+                  className="group block w-full text-left rounded-xl bg-card border border-card-border overflow-hidden hover-elevate"
+                >
+                  <div className="bg-white relative" style={{ height: 220 }}>
+                    <div
+                      style={{
+                        transform: "scale(0.27)",
+                        transformOrigin: "top left",
+                        width: "8.5in",
+                      }}
+                    >
+                      <ResumeRender resume={previewResume as never} />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-3">
+                      <span className="text-white text-xs font-semibold inline-flex items-center gap-1">
+                        Use template <ArrowRight className="size-3" />
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-3 flex items-center justify-between">
+                    <div className="text-sm font-semibold">{t.name}</div>
+                    <span className="size-3 rounded-full" style={{ background: t.accentColor }} />
+                  </div>
+                </button>
+              </motion.div>
+            );
+          })}
         </div>
         <div className="text-center mt-8">
           <Link href="/templates">
@@ -602,7 +558,7 @@ function CoverageRing() {
     { name: "Projects", value: 15, color: "color-mix(in oklab, var(--accent) 60%, white)" },
   ];
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+    <div className="grid grid-cols-2 gap-4 items-center">
       <div style={{ height: 140 }}>
         <ResponsiveContainer>
           <PieChart>
