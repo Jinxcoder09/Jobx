@@ -80,7 +80,7 @@ export default function Dashboard() {
                 <Plus className="size-4" /> New resume
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent aria-describedby={undefined}>
               <DialogHeader>
                 <DialogTitle>Create a new resume</DialogTitle>
               </DialogHeader>
