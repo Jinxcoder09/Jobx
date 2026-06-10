@@ -36,6 +36,18 @@ logger = logging.getLogger("jobx")
 async def lifespan(app: FastAPI):
     logger.info("Connecting to MongoDB Atlas…")
     await connect_db()
+    
+    # Programmatically verify and install Playwright Chromium Headless Shell if missing (e.g. on Render native Python runtime)
+    import subprocess
+    import sys
+    try:
+        logger.info("Checking/Installing Playwright Chromium browser binaries...")
+        # Idempotent command: downloads chromium if not present, otherwise exits quickly
+        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+        logger.info("Playwright Chromium check/installation complete.")
+    except Exception as e:
+        logger.warning(f"Could not verify/install Playwright Chromium at startup: {e}")
+        
     yield
     logger.info("Shutting down — closing MongoDB connection…")
     await close_db()
