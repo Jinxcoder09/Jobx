@@ -736,3 +736,42 @@ class PdfResumeBuilder:
         doc.build(story)
         pdf_buffer.seek(0)
         return pdf_buffer.getvalue()
+
+
+async def generate_pdf_from_html(html_content: str, css_content: str) -> bytes:
+    """Render the exact HTML/CSS content to A4 selectable PDF using headless Playwright Chromium."""
+    from playwright.async_api import async_playwright
+    
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+        
+        # Prepare HTML document with styles and fonts loaded
+        full_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+{css_content}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body style="margin: 0; padding: 0; background: white;">
+{html_content}
+</body>
+</html>"""
+        
+        await page.set_content(full_html)
+        # Ensure all web fonts are fully loaded
+        await page.evaluate("document.fonts.ready")
+        
+        # Print to A4 PDF with exact dimensions
+        pdf_bytes = await page.pdf(
+            print_background=True,
+            width="210mm",
+            height="297mm",
+            margin={"top": "0", "right": "0", "bottom": "0", "left": "0"}
+        )
+        await browser.close()
+        return pdf_bytes

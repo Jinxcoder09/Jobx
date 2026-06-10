@@ -130,6 +130,7 @@ export default function Builder() {
   const [importOpen, setImportOpen] = useState(false);
   const [scoreOpen, setScoreOpen] = useState(false);
   const [showPageGuides, setShowPageGuides] = useState(true);
+  const [debugMode, setDebugMode] = useState(false);
 
   // Mobile layout state
   const [mobileTab, setMobileTab] = useState<"edit" | "preview">("edit");
@@ -241,6 +242,8 @@ export default function Builder() {
         saving={update.isPending}
         showPageGuides={showPageGuides}
         onTogglePageGuides={() => setShowPageGuides((v) => !v)}
+        debugMode={debugMode}
+        setDebugMode={setDebugMode}
         onTitle={(v) => patchResume({ title: v })}
         onTemplate={(v) => patchResume({ templateId: v })}
         onPatchTheme={patchTheme}
@@ -294,7 +297,7 @@ export default function Builder() {
         >
           <ScrollArea className="h-[calc(100vh-3.5rem)]">
             <div className="p-4 flex justify-center items-start">
-              <ResumeRender resume={draft} zoom={responsiveZoom} showPageGuides={showPageGuides} />
+              <ResumeRender resume={draft} zoom={responsiveZoom} showPageGuides={showPageGuides} debugMode={debugMode} />
             </div>
           </ScrollArea>
         </div>
@@ -367,6 +370,8 @@ function TopBar({
   saving,
   showPageGuides,
   onTogglePageGuides,
+  debugMode,
+  setDebugMode,
   onTitle,
   onTemplate,
   onPatchTheme,
@@ -385,6 +390,8 @@ function TopBar({
   saving: boolean;
   showPageGuides: boolean;
   onTogglePageGuides: () => void;
+  debugMode: boolean;
+  setDebugMode: (v: boolean) => void;
   onTitle: (v: string) => void;
   onTemplate: (v: string) => void;
   onPatchTheme: (p: Partial<Theme>) => void;
@@ -497,6 +504,13 @@ function TopBar({
                 <Switch
                   checked={theme.layout === "two-column"}
                   onCheckedChange={(v) => onPatchTheme({ layout: v ? "two-column" : "single" })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="cursor-pointer">Pagination debug mode</Label>
+                <Switch
+                  checked={debugMode}
+                  onCheckedChange={setDebugMode}
                 />
               </div>
             </div>

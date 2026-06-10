@@ -299,29 +299,28 @@
 
 @media print {
   @page {
-    size: Letter;
-    margin: 0.6in 0.7in;
+    size: A4;
+    margin: 0;
   }
-  html, body { background: white !important; }
+  html, body { background: white !important; margin: 0; padding: 0; }
   .no-print { display: none !important; }
   .page-guide { display: none !important; }
   .resume-page-container {
     width: auto !important;
     height: auto !important;
     overflow: visible !important;
+    transform: none !important;
   }
   .resume-page {
     box-shadow: none !important;
     margin: 0 !important;
-    width: 100% !important;
-    min-height: 0 !important;
-    overflow: visible !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    padding: 0 !important;
-  }
-  .resume-page > div {
-    padding: 0 !important;
+    page-break-after: always;
+    break-after: page;
   }
   .resume-page-wrap { transform: none !important; }
 }
