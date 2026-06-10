@@ -3,18 +3,24 @@ from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import StreamingResponse
 
 from ..database import get_resumes_collection
-from ..services.pdf_generator import PdfResumeBuilder
+from ..services.pdf_generator import PdfResumeBuilder, generate_pdf_from_html
 from ..services.docx_generator import DocxResumeBuilder
 
 router = APIRouter()
 
 @router.post("/resume/generate-pdf")
-async def generate_pdf(resume_data: dict):
+async def generate_pdf(payload: dict):
     try:
-        builder = PdfResumeBuilder(resume_data)
-        pdf_bytes = builder.generate()
+        html = payload.get("html")
+        css = payload.get("css")
+        title = payload.get("title", "resume")
         
-        title = resume_data.get("title", "resume")
+        if html and css:
+            pdf_bytes = await generate_pdf_from_html(html, css)
+        else:
+            builder = PdfResumeBuilder(payload)
+            pdf_bytes = builder.generate()
+        
         filename = f"{title}.pdf".replace(" ", "_")
         
         return StreamingResponse(
@@ -43,10 +49,16 @@ async def generate_docx(resume_data: dict):
         raise HTTPException(status_code=500, detail=f"Failed to generate DOCX: {str(e)}")
 
 @router.post("/resume/preview")
-async def preview_resume(resume_data: dict):
+async def preview_resume(payload: dict):
     try:
-        builder = PdfResumeBuilder(resume_data)
-        pdf_bytes = builder.generate()
+        html = payload.get("html")
+        css = payload.get("css")
+        
+        if html and css:
+            pdf_bytes = await generate_pdf_from_html(html, css)
+        else:
+            builder = PdfResumeBuilder(payload)
+            pdf_bytes = builder.generate()
         
         return Response(
             content=pdf_bytes,
