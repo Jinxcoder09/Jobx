@@ -338,7 +338,7 @@ export default function Builder() {
 
       {/* Section Reorder Dialog (Mobile/Tablet only) */}
       <Dialog open={reorderOpen} onOpenChange={setReorderOpen}>
-        <DialogContent className="max-w-md w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent aria-describedby={undefined} className="max-w-md w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Reorder resume sections</DialogTitle>
           </DialogHeader>
@@ -1333,7 +1333,7 @@ function ImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent aria-describedby={undefined} className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import an existing resume</DialogTitle>
         </DialogHeader>
@@ -1453,7 +1453,7 @@ function AtsScoreDialog({ open, onOpenChange, data }: { open: boolean; onOpenCha
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent aria-describedby={undefined} className="max-w-xl w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>ATS Score</DialogTitle>
         </DialogHeader>
