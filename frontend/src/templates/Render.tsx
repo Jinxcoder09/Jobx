@@ -502,6 +502,20 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false }: Props
   const pageRef = useRef<HTMLDivElement>(null);
   const [pages, setPages] = useState(1);
   const [pageHeightPx, setPageHeightPx] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  useEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    function measureHeight() {
+      if (!el) return;
+      setContentHeight(el.offsetHeight);
+    }
+    measureHeight();
+    const ro = new ResizeObserver(measureHeight);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data, theme, templateId, showPageGuides]);
 
   useEffect(() => {
     if (!showPageGuides) return;
@@ -509,9 +523,8 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false }: Props
     if (!el) return;
     function measure() {
       if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const widthPx = rect.width || el.offsetWidth;
-      // 8.5in container == widthPx CSS pixels at current zoom
+      const widthPx = el.offsetWidth || 816;
+      // 8.5in container == widthPx CSS pixels
       // 1in == widthPx / 8.5
       const inToPx = widthPx / 8.5;
       // Account for top/bottom padding in the content area
@@ -530,67 +543,80 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false }: Props
 
   return (
     <div
-      className="resume-page-wrap"
-      style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
+      className="resume-page-container"
+      style={{
+        width: 816 * zoom,
+        height: contentHeight ? contentHeight * zoom : undefined,
+        position: "relative",
+        overflow: "hidden",
+      }}
     >
       <div
-        ref={pageRef}
-        className="resume-page"
-        style={{ minHeight: showPageGuides ? Math.max(pageHeightPx, 11 * 96) : undefined }}
+        className="resume-page-wrap"
+        style={{
+          transform: `scale(${zoom})`,
+          transformOrigin: "top left",
+        }}
       >
-        <div style={baseStyle}>
-          <Header {...ctx} />
-          {isTwo ? (
-            <div style={{ display: "grid", gridTemplateColumns: templateId === "creative" ? "1fr 2fr" : "2fr 1fr", gap: 24 }}>
-              <div style={templateId === "creative" ? {
-                background: `${theme.accentColor}10`,
-                padding: 14,
-                borderRadius: 8,
-              } : {}}>
-                {(templateId === "creative" ? asideKeys : mainKeys).map((k) => (
-                  <div key={k}>{renderSection(k, ctx)}</div>
-                ))}
-                {templateId === "creative" && <CustomBlocks {...ctx} />}
-              </div>
-              <div>
-                {(templateId === "creative" ? mainKeys : asideKeys).map((k) => (
-                  <div key={k}>{renderSection(k, ctx)}</div>
-                ))}
-                {templateId !== "creative" && <CustomBlocks {...ctx} />}
-              </div>
-            </div>
-          ) : (
-            <>
-              {order.map((k) => (
-                <div key={k}>{renderSection(k, ctx)}</div>
-              ))}
-              <CustomBlocks {...ctx} />
-            </>
-          )}
-        </div>
-      </div>
-      {showPageGuides && pageHeightPx > 0 && pages >= 1 && (
-        <div className="page-guide" style={{ top: 0, bottom: 0 }}>
-          <div className="page-guide-label" style={{ top: 0 }}>
-            Page 1 of {pages}
-          </div>
-          {pages > 1 && Array.from({ length: pages - 1 }).map((_, i) => {
-            const top = (i + 1) * pageHeightPx;
-            return (
-              <div key={i}>
-                <div className="page-guide-line" style={{ top }} />
-                <div className="page-guide-label" style={{ top }}>
-                  Page {i + 2} of {pages}
+        <div
+          ref={pageRef}
+          className="resume-page"
+          style={{ minHeight: showPageGuides ? Math.max(pageHeightPx, 11 * 96) : undefined }}
+        >
+          <div style={baseStyle}>
+            <Header {...ctx} />
+            {isTwo ? (
+              <div style={{ display: "grid", gridTemplateColumns: templateId === "creative" ? "1fr 2fr" : "2fr 1fr", gap: 24 }}>
+                <div style={templateId === "creative" ? {
+                  background: `${theme.accentColor}10`,
+                  padding: 14,
+                  borderRadius: 8,
+                } : {}}>
+                  {(templateId === "creative" ? asideKeys : mainKeys).map((k) => (
+                    <div key={k}>{renderSection(k, ctx)}</div>
+                  ))}
+                  {templateId === "creative" && <CustomBlocks {...ctx} />}
                 </div>
-                <div
-                  className="page-guide-fold"
-                  style={{ top: top - PAGE_GAP_IN * 48, height: PAGE_GAP_IN * 96 }}
-                />
+                <div>
+                  {(templateId === "creative" ? mainKeys : asideKeys).map((k) => (
+                    <div key={k}>{renderSection(k, ctx)}</div>
+                  ))}
+                  {templateId !== "creative" && <CustomBlocks {...ctx} />}
+                </div>
               </div>
-            );
-          })}
+            ) : (
+              <>
+                {order.map((k) => (
+                  <div key={k}>{renderSection(k, ctx)}</div>
+                ))}
+                <CustomBlocks {...ctx} />
+              </>
+            )}
+          </div>
         </div>
-      )}
+        {showPageGuides && pageHeightPx > 0 && pages >= 1 && (
+          <div className="page-guide" style={{ top: 0, bottom: 0 }}>
+            <div className="page-guide-label" style={{ top: 0 }}>
+              Page 1 of {pages}
+            </div>
+            {pages > 1 && Array.from({ length: pages - 1 }).map((_, i) => {
+              const top = (i + 1) * pageHeightPx;
+              return (
+                <div key={i}>
+                  <div className="page-guide-line" style={{ top }} />
+                  <div className="page-guide-label" style={{ top }}>
+                    Page {i + 2} of {pages}
+                  </div>
+                  <div
+                    className="page-guide-fold"
+                    style={{ top: top - PAGE_GAP_IN * 48, height: PAGE_GAP_IN * 96 }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

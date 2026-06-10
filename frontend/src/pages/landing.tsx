@@ -154,7 +154,7 @@ function BackgroundOrbs() {
         className="pointer-events-none absolute -top-40 -left-40 w-[520px] h-[520px] rounded-full opacity-40 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, color-mix(in oklab, var(--primary) 35%, transparent), transparent)",
+            "radial-gradient(closest-side, color-mix(in oklab, hsl(var(--primary)) 35%, transparent), transparent)",
         }}
       />
       <div
@@ -162,7 +162,7 @@ function BackgroundOrbs() {
         className="pointer-events-none absolute -bottom-32 -right-32 w-[460px] h-[460px] rounded-full opacity-40 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, color-mix(in oklab, var(--accent) 40%, transparent), transparent)",
+            "radial-gradient(closest-side, color-mix(in oklab, hsl(var(--accent)) 40%, transparent), transparent)",
         }}
       />
       <FloatingCircle className="top-12 right-1/3 size-3 bg-primary/60" delay={0} />
@@ -238,13 +238,13 @@ function FloatingChip({ icon, text }: { icon: React.ReactNode; text: string }) {
 }
 
 function ScoreOrb({ score, label }: { score: number; label: string }) {
-  const data = [{ name: "score", value: score, fill: "var(--primary)" }];
+  const data = [{ name: "score", value: score, fill: "hsl(var(--primary))" }];
   return (
     <div className="rounded-2xl bg-card border border-border shadow-lg px-3 py-3 w-32 flex flex-col items-center">
       <div style={{ width: 88, height: 88 }}>
         <ResponsiveContainer>
           <RadialBarChart innerRadius="65%" outerRadius="100%" data={data} startAngle={90} endAngle={-270}>
-            <RadialBar dataKey="value" background={{ fill: "color-mix(in oklab, var(--primary) 12%, transparent)" }} cornerRadius={20} />
+            <RadialBar dataKey="value" background={{ fill: "color-mix(in oklab, hsl(var(--primary)) 12%, transparent)" }} cornerRadius={20} />
           </RadialBarChart>
         </ResponsiveContainer>
         <div className="-mt-[68px] text-center pointer-events-none">
@@ -497,27 +497,27 @@ function AtsShowcase() {
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="you" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="others" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--muted-foreground)" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="var(--muted-foreground)" stopOpacity={0} />
+                  <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="color-mix(in oklab, var(--border) 60%, transparent)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="week" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
+              <CartesianGrid stroke="color-mix(in oklab, hsl(var(--border)) 60%, transparent)" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
               <Tooltip
                 contentStyle={{
-                  background: "var(--popover)",
-                  border: "1px solid var(--border)",
+                  background: "hsl(var(--popover))",
+                  border: "1px solid hsl(var(--border))",
                   borderRadius: 8,
-                  color: "var(--popover-foreground)",
+                  color: "hsl(var(--popover-foreground))",
                 }}
               />
-              <Area type="monotone" dataKey="others" stroke="var(--muted-foreground)" fill="url(#others)" strokeWidth={1.5} />
-              <Area type="monotone" dataKey="you" stroke="var(--primary)" fill="url(#you)" strokeWidth={2.5} />
+              <Area type="monotone" dataKey="others" stroke="hsl(var(--muted-foreground))" fill="url(#others)" strokeWidth={1.5} />
+              <Area type="monotone" dataKey="you" stroke="hsl(var(--primary))" fill="url(#you)" strokeWidth={2.5} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -551,11 +551,11 @@ function FeatureBullet({ icon, text }: { icon: React.ReactNode; text: string }) 
 
 function CoverageRing() {
   const data = [
-    { name: "Summary", value: 22, color: "var(--primary)" },
-    { name: "Experience", value: 30, color: "var(--accent)" },
-    { name: "Skills", value: 18, color: "color-mix(in oklab, var(--primary) 50%, var(--accent))" },
-    { name: "Education", value: 15, color: "color-mix(in oklab, var(--primary) 70%, white)" },
-    { name: "Projects", value: 15, color: "color-mix(in oklab, var(--accent) 60%, white)" },
+    { name: "Summary", value: 22, color: "hsl(var(--primary))" },
+    { name: "Experience", value: 30, color: "hsl(var(--accent))" },
+    { name: "Skills", value: 18, color: "color-mix(in oklab, hsl(var(--primary)) 50%, hsl(var(--accent)))" },
+    { name: "Education", value: 15, color: "color-mix(in oklab, hsl(var(--primary)) 70%, white)" },
+    { name: "Projects", value: 15, color: "color-mix(in oklab, hsl(var(--accent)) 60%, white)" },
   ];
   return (
     <div className="grid grid-cols-2 gap-4 items-center">
