@@ -37,14 +37,21 @@ async def lifespan(app: FastAPI):
     logger.info("Connecting to MongoDB Atlas…")
     await connect_db()
     
-    # Programmatically verify and install Playwright Chromium Headless Shell if missing (e.g. on Render native Python runtime)
+    # Verify Playwright Chromium installation and install if missing
     import subprocess
     import sys
     try:
-        logger.info("Checking/Installing Playwright Chromium browser binaries...")
-        # Idempotent command: downloads chromium if not present, otherwise exits quickly
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-        logger.info("Playwright Chromium check/installation complete.")
+        logger.info("Verifying Playwright Chromium browser binaries...")
+        from playwright.async_api import async_playwright
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                await browser.close()
+            logger.info("Playwright Chromium is already installed.")
+        except Exception as launch_err:
+            logger.warning(f"Playwright Chromium launch failed, attempting to install: {launch_err}")
+            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+            logger.info("Playwright Chromium browser check/installation complete.")
     except Exception as e:
         logger.warning(f"Could not verify/install Playwright Chromium at startup: {e}")
         

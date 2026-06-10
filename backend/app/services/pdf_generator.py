@@ -741,15 +741,7 @@ class PdfResumeBuilder:
 async def generate_pdf_from_html(html_content: str, css_content: str) -> bytes:
     """Render the exact HTML/CSS content to A4 selectable PDF using headless Playwright Chromium."""
     from playwright.async_api import async_playwright
-    import subprocess
-    import sys
     
-    # Fail-safe: verify and download Chromium headless shell if missing
-    try:
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-    except Exception:
-        pass
-        
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
