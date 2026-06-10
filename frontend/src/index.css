@@ -298,7 +298,10 @@
 }
 
 @media print {
-  @page { size: Letter; margin: 0; }
+  @page {
+    size: Letter;
+    margin: 0.6in 0.7in;
+  }
   html, body { background: white !important; }
   .no-print { display: none !important; }
   .page-guide { display: none !important; }
@@ -310,11 +313,15 @@
   .resume-page {
     box-shadow: none !important;
     margin: 0 !important;
-    width: 8.5in !important;
-    min-height: 11in !important;
+    width: 100% !important;
+    min-height: 0 !important;
     overflow: visible !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    padding: 0 !important;
+  }
+  .resume-page > div {
+    padding: 0 !important;
   }
   .resume-page-wrap { transform: none !important; }
 }

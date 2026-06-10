@@ -194,6 +194,26 @@ function HeroPreview() {
     }),
     [],
   );
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setWidth(entry.contentRect.width || 0);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const zoom = useMemo(() => {
+    if (width <= 0) return 0.62;
+    return Math.min(0.62, width / 816);
+  }, [width]);
+
   return (
     <div className="relative">
       <div className="absolute -top-8 -left-8 hidden md:block">
@@ -206,18 +226,11 @@ function HeroPreview() {
         <FloatingChip icon={<FileDown className="size-3.5" />} text="PDF ready" />
       </div>
       <div
+        ref={containerRef}
         className="rounded-2xl border border-border bg-white shadow-2xl shadow-primary/10 overflow-hidden"
         style={{ height: 460 }}
       >
-        <div
-          style={{
-            transform: "scale(0.62)",
-            transformOrigin: "top left",
-            width: "8.5in",
-          }}
-        >
-          <ResumeRender resume={previewResume as never} />
-        </div>
+        <ResumeRender resume={previewResume as never} zoom={zoom} />
       </div>
     </div>
   );
@@ -377,6 +390,69 @@ function Features() {
 
 /* ───────── Templates marquee ───────── */
 
+function TemplateCard({
+  template,
+  onUse,
+}: {
+  template: { id: string; name: string; accentColor: string; fontFamily: string; layout: string };
+  onUse: (id: string, name: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setWidth(entry.contentRect.width || 0);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const zoom = useMemo(() => {
+    if (width <= 0) return 0.27;
+    return width / 816;
+  }, [width]);
+
+  const previewResume = useMemo(
+    () => ({
+      id: `tm-${template.id}`,
+      title: template.name,
+      templateId: template.id,
+      theme: {
+        ...defaultTheme(),
+        accentColor: template.accentColor,
+        fontFamily: template.fontFamily,
+        layout: template.layout as "single" | "two-column",
+      },
+      data: sampleData(),
+    }),
+    [template],
+  );
+
+  return (
+    <button
+      onClick={() => onUse(template.id, template.name)}
+      className="group block w-full text-left rounded-xl bg-card border border-card-border overflow-hidden hover-elevate"
+    >
+      <div ref={containerRef} className="bg-white relative overflow-hidden" style={{ height: 220 }}>
+        <ResumeRender resume={previewResume as never} zoom={zoom} />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-3">
+          <span className="text-white text-xs font-semibold inline-flex items-center gap-1">
+            Use template <ArrowRight className="size-3" />
+          </span>
+        </div>
+      </div>
+      <div className="p-3 flex items-center justify-between">
+        <div className="text-sm font-semibold">{template.name}</div>
+        <span className="size-3 rounded-full" style={{ background: template.accentColor }} />
+      </div>
+    </button>
+  );
+}
+
 function TemplateMarquee({
   templates,
   onUse,
@@ -393,55 +469,17 @@ function TemplateMarquee({
           sub="Each template is hand-tuned for clarity, ATS compatibility, and printable beauty."
         />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-12">
-          {templates.slice(0, 8).map((t, i) => {
-            const previewResume = {
-              id: `tm-${t.id}`,
-              title: t.name,
-              templateId: t.id,
-              theme: {
-                ...defaultTheme(),
-                accentColor: t.accentColor,
-                fontFamily: t.fontFamily,
-                layout: t.layout as "single" | "two-column",
-              },
-              data: sampleData(),
-            };
-            return (
-              <motion.div
-                key={t.id}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.04, duration: 0.3 }}
-              >
-                <button
-                  onClick={() => onUse(t.id, t.name)}
-                  className="group block w-full text-left rounded-xl bg-card border border-card-border overflow-hidden hover-elevate"
-                >
-                  <div className="bg-white relative" style={{ height: 220 }}>
-                    <div
-                      style={{
-                        transform: "scale(0.27)",
-                        transformOrigin: "top left",
-                        width: "8.5in",
-                      }}
-                    >
-                      <ResumeRender resume={previewResume as never} />
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-3">
-                      <span className="text-white text-xs font-semibold inline-flex items-center gap-1">
-                        Use template <ArrowRight className="size-3" />
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-3 flex items-center justify-between">
-                    <div className="text-sm font-semibold">{t.name}</div>
-                    <span className="size-3 rounded-full" style={{ background: t.accentColor }} />
-                  </div>
-                </button>
-              </motion.div>
-            );
-          })}
+          {templates.slice(0, 8).map((t, i) => (
+            <motion.div
+              key={t.id}
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.04, duration: 0.3 }}
+            >
+              <TemplateCard template={t} onUse={onUse} />
+            </motion.div>
+          ))}
         </div>
         <div className="text-center mt-8">
           <Link href="/templates">
