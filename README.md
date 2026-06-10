@@ -173,29 +173,24 @@ All routes mounted under `/api` — identical to the original Express server.
 
 ## Production deployment
 
-### Backend (e.g. Railway, Render, Fly.io)
+### Backend (Render.com)
 
-```bash
-# Dockerfile (single-stage)
-FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3001"]
-```
+To run the backend on **Render**, we highly recommend deploying via a **Web Service using a Dockerfile** (since Playwright Chromium requires specific OS-level shared libraries).
 
-Set all env vars in your platform's dashboard. Set `CORS_ORIGINS` to your
-frontend's production URL.
+1. Select **Docker** as the runtime environment on Render.
+2. The provided [Dockerfile](file:///c:/Users/walkingtree/Music/jobx/Jobx/backend/Dockerfile) in the `backend/` folder installs Python, pip packages, and executes `playwright install --with-deps chromium` automatically during build.
+3. Configure the following Environment Variables in the Render Dashboard:
+   - `MONGODB_URI`: Your MongoDB Atlas URI.
+   - `GROQ_API_KEY`: Your Groq API Key.
+   - `CORS_ORIGINS`: Your Vercel frontend URL (e.g., `https://jobx-delta.vercel.app`).
 
-### Frontend (e.g. Vercel, Netlify, Cloudflare Pages)
+### Frontend (Vercel)
 
-```bash
-cd frontend
-npm run build        # outputs to frontend/dist/
-```
+1. Deploy the `frontend/` directory to **Vercel**.
+2. Configure the following Environment Variable in your Vercel Project Settings:
+   - `VITE_API_URL`: Set this to your deployed Render backend URL (e.g., `https://jobx-2.onrender.com`).
+3. Vercel will automatically build the static assets with the correct backend endpoint.
 
-Set `VITE_API_URL` to your deployed backend URL before building.
 
 ---
 

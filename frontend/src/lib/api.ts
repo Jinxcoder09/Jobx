@@ -39,6 +39,92 @@ async function apiFetch<T>(
   return res.json() as Promise<T>;
 }
 
+// ─── Document Export ──────────────────────────────────────────────────────────
+
+export async function downloadDocument(
+  endpoint: string,
+  resume: Resume,
+  extension: string
+): Promise<void> {
+  const res = await fetch(`${BASE}${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(resume),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body?.error ?? body?.detail ?? `HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${resume.title || "resume"}.${extension}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+export async function exportResumeAsPdf(resume: Resume): Promise<void> {
+  const pages = Array.from(document.querySelectorAll(".resume-page"));
+  if (pages.length === 0) {
+    return downloadDocument("/api/resume/generate-pdf", resume, "pdf");
+  }
+
+  const css = Array.from(document.styleSheets)
+    .map((sheet) => {
+      try {
+        return Array.from(sheet.cssRules)
+          .map((rule) => rule.cssText)
+          .join("\n");
+      } catch (e) {
+        return "";
+      }
+    })
+    .join("\n");
+
+  const html = pages
+    .map((p) => {
+      const clone = p.cloneNode(true) as HTMLElement;
+      const style = clone.style as any;
+      style.webkitPrintColorAdjust = "exact";
+      style.printColorAdjust = "exact";
+      return clone.outerHTML;
+    })
+    .join("\n");
+
+  const res = await fetch(`${BASE}/api/resume/generate-pdf`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      html,
+      css,
+      title: resume.title || "resume",
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body?.error ?? body?.detail ?? `HTTP ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = `${resume.title || "resume"}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+}
+
+export async function exportResumeAsDocx(resume: Resume): Promise<void> {
+  return downloadDocument("/api/resume/generate-docx", resume, "docx");
+}
+
+
 // ─── Query key factories ──────────────────────────────────────────────────────
 
 export const getListResumesQueryKey   = ()         => ["/api/resumes"]          as const;

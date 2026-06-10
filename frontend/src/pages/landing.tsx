@@ -154,7 +154,7 @@ function BackgroundOrbs() {
         className="pointer-events-none absolute -top-40 -left-40 w-[520px] h-[520px] rounded-full opacity-40 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, color-mix(in oklab, var(--primary) 35%, transparent), transparent)",
+            "radial-gradient(closest-side, color-mix(in oklab, hsl(var(--primary)) 35%, transparent), transparent)",
         }}
       />
       <div
@@ -162,7 +162,7 @@ function BackgroundOrbs() {
         className="pointer-events-none absolute -bottom-32 -right-32 w-[460px] h-[460px] rounded-full opacity-40 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, color-mix(in oklab, var(--accent) 40%, transparent), transparent)",
+            "radial-gradient(closest-side, color-mix(in oklab, hsl(var(--accent)) 40%, transparent), transparent)",
         }}
       />
       <FloatingCircle className="top-12 right-1/3 size-3 bg-primary/60" delay={0} />
@@ -194,6 +194,26 @@ function HeroPreview() {
     }),
     [],
   );
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setWidth(entry.contentRect.width || 0);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const zoom = useMemo(() => {
+    if (width <= 0) return 0.62;
+    return Math.min(0.62, width / 816);
+  }, [width]);
+
   return (
     <div className="relative">
       <div className="absolute -top-8 -left-8 hidden md:block">
@@ -206,18 +226,11 @@ function HeroPreview() {
         <FloatingChip icon={<FileDown className="size-3.5" />} text="PDF ready" />
       </div>
       <div
+        ref={containerRef}
         className="rounded-2xl border border-border bg-white shadow-2xl shadow-primary/10 overflow-hidden"
         style={{ height: 460 }}
       >
-        <div
-          style={{
-            transform: "scale(0.62)",
-            transformOrigin: "top left",
-            width: "8.5in",
-          }}
-        >
-          <ResumeRender resume={previewResume as never} />
-        </div>
+        <ResumeRender resume={previewResume as never} zoom={zoom} />
       </div>
     </div>
   );
@@ -238,13 +251,13 @@ function FloatingChip({ icon, text }: { icon: React.ReactNode; text: string }) {
 }
 
 function ScoreOrb({ score, label }: { score: number; label: string }) {
-  const data = [{ name: "score", value: score, fill: "var(--primary)" }];
+  const data = [{ name: "score", value: score, fill: "var(--color-primary)" }];
   return (
     <div className="rounded-2xl bg-card border border-border shadow-lg px-3 py-3 w-32 flex flex-col items-center">
       <div style={{ width: 88, height: 88 }}>
         <ResponsiveContainer>
           <RadialBarChart innerRadius="65%" outerRadius="100%" data={data} startAngle={90} endAngle={-270}>
-            <RadialBar dataKey="value" background={{ fill: "color-mix(in oklab, var(--primary) 12%, transparent)" }} cornerRadius={20} />
+            <RadialBar dataKey="value" background={{ fill: "color-mix(in oklab, var(--color-primary) 12%, transparent)" }} cornerRadius={20} />
           </RadialBarChart>
         </ResponsiveContainer>
         <div className="-mt-[68px] text-center pointer-events-none">
@@ -377,6 +390,69 @@ function Features() {
 
 /* ───────── Templates marquee ───────── */
 
+function TemplateCard({
+  template,
+  onUse,
+}: {
+  template: { id: string; name: string; accentColor: string; fontFamily: string; layout: string };
+  onUse: (id: string, name: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setWidth(entry.contentRect.width || 0);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const zoom = useMemo(() => {
+    if (width <= 0) return 0.27;
+    return width / 816;
+  }, [width]);
+
+  const previewResume = useMemo(
+    () => ({
+      id: `tm-${template.id}`,
+      title: template.name,
+      templateId: template.id,
+      theme: {
+        ...defaultTheme(),
+        accentColor: template.accentColor,
+        fontFamily: template.fontFamily,
+        layout: template.layout as "single" | "two-column",
+      },
+      data: sampleData(),
+    }),
+    [template],
+  );
+
+  return (
+    <button
+      onClick={() => onUse(template.id, template.name)}
+      className="group block w-full text-left rounded-xl bg-card border border-card-border overflow-hidden hover-elevate"
+    >
+      <div ref={containerRef} className="bg-white relative overflow-hidden" style={{ height: 220 }}>
+        <ResumeRender resume={previewResume as never} zoom={zoom} />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-3">
+          <span className="text-white text-xs font-semibold inline-flex items-center gap-1">
+            Use template <ArrowRight className="size-3" />
+          </span>
+        </div>
+      </div>
+      <div className="p-3 flex items-center justify-between">
+        <div className="text-sm font-semibold">{template.name}</div>
+        <span className="size-3 rounded-full" style={{ background: template.accentColor }} />
+      </div>
+    </button>
+  );
+}
+
 function TemplateMarquee({
   templates,
   onUse,
@@ -393,55 +469,17 @@ function TemplateMarquee({
           sub="Each template is hand-tuned for clarity, ATS compatibility, and printable beauty."
         />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-12">
-          {templates.slice(0, 8).map((t, i) => {
-            const previewResume = {
-              id: `tm-${t.id}`,
-              title: t.name,
-              templateId: t.id,
-              theme: {
-                ...defaultTheme(),
-                accentColor: t.accentColor,
-                fontFamily: t.fontFamily,
-                layout: t.layout as "single" | "two-column",
-              },
-              data: sampleData(),
-            };
-            return (
-              <motion.div
-                key={t.id}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.04, duration: 0.3 }}
-              >
-                <button
-                  onClick={() => onUse(t.id, t.name)}
-                  className="group block w-full text-left rounded-xl bg-card border border-card-border overflow-hidden hover-elevate"
-                >
-                  <div className="bg-white relative" style={{ height: 220 }}>
-                    <div
-                      style={{
-                        transform: "scale(0.27)",
-                        transformOrigin: "top left",
-                        width: "8.5in",
-                      }}
-                    >
-                      <ResumeRender resume={previewResume as never} />
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-3">
-                      <span className="text-white text-xs font-semibold inline-flex items-center gap-1">
-                        Use template <ArrowRight className="size-3" />
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-3 flex items-center justify-between">
-                    <div className="text-sm font-semibold">{t.name}</div>
-                    <span className="size-3 rounded-full" style={{ background: t.accentColor }} />
-                  </div>
-                </button>
-              </motion.div>
-            );
-          })}
+          {templates.slice(0, 8).map((t, i) => (
+            <motion.div
+              key={t.id}
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.04, duration: 0.3 }}
+            >
+              <TemplateCard template={t} onUse={onUse} />
+            </motion.div>
+          ))}
         </div>
         <div className="text-center mt-8">
           <Link href="/templates">
@@ -497,27 +535,27 @@ function AtsShowcase() {
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="you" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="others" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--muted-foreground)" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="var(--muted-foreground)" stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--color-muted-foreground)" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="var(--color-muted-foreground)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="color-mix(in oklab, var(--border) 60%, transparent)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="week" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
+              <CartesianGrid stroke="color-mix(in oklab, var(--color-border) 60%, transparent)" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="week" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
               <Tooltip
                 contentStyle={{
-                  background: "var(--popover)",
-                  border: "1px solid var(--border)",
+                  background: "var(--color-popover)",
+                  border: "1px solid var(--color-border)",
                   borderRadius: 8,
-                  color: "var(--popover-foreground)",
+                  color: "var(--color-popover-foreground)",
                 }}
               />
-              <Area type="monotone" dataKey="others" stroke="var(--muted-foreground)" fill="url(#others)" strokeWidth={1.5} />
-              <Area type="monotone" dataKey="you" stroke="var(--primary)" fill="url(#you)" strokeWidth={2.5} />
+              <Area type="monotone" dataKey="others" stroke="var(--color-muted-foreground)" fill="url(#others)" strokeWidth={1.5} />
+              <Area type="monotone" dataKey="you" stroke="var(--color-primary)" fill="url(#you)" strokeWidth={2.5} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -551,11 +589,11 @@ function FeatureBullet({ icon, text }: { icon: React.ReactNode; text: string }) 
 
 function CoverageRing() {
   const data = [
-    { name: "Summary", value: 22, color: "var(--primary)" },
-    { name: "Experience", value: 30, color: "var(--accent)" },
-    { name: "Skills", value: 18, color: "color-mix(in oklab, var(--primary) 50%, var(--accent))" },
-    { name: "Education", value: 15, color: "color-mix(in oklab, var(--primary) 70%, white)" },
-    { name: "Projects", value: 15, color: "color-mix(in oklab, var(--accent) 60%, white)" },
+    { name: "Summary", value: 22, color: "var(--color-primary)" },
+    { name: "Experience", value: 30, color: "var(--color-accent)" },
+    { name: "Skills", value: 18, color: "color-mix(in oklab, var(--color-primary) 50%, var(--color-accent))" },
+    { name: "Education", value: 15, color: "color-mix(in oklab, var(--color-primary) 70%, white)" },
+    { name: "Projects", value: 15, color: "color-mix(in oklab, var(--color-accent) 60%, white)" },
   ];
   return (
     <div className="grid grid-cols-2 gap-4 items-center">

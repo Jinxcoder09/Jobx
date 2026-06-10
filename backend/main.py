@@ -19,6 +19,7 @@ from app.routes import (
     templates_router,
     resumes_router,
     ai_router,
+    documents_router,
 )
 
 # ─── Logging ─────────────────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ app.include_router(health_router,    prefix=API_PREFIX)
 app.include_router(templates_router, prefix=API_PREFIX)
 app.include_router(resumes_router,   prefix=API_PREFIX)
 app.include_router(ai_router,        prefix=API_PREFIX)
+app.include_router(documents_router, prefix=API_PREFIX)
 
 
 # ─── Dev entrypoint ──────────────────────────────────────────────────────────
