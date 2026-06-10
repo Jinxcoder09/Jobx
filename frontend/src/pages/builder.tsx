@@ -134,8 +134,6 @@ export default function Builder() {
   // Mobile layout state
   const [mobileTab, setMobileTab] = useState<"edit" | "preview">("edit");
   const [reorderOpen, setReorderOpen] = useState(false);
-  const [customizeOpen, setCustomizeOpen] = useState(false);
-
 
   // Dynamic preview width tracking
   const previewContainerRef = useRef<HTMLDivElement>(null);
@@ -254,10 +252,7 @@ export default function Builder() {
         onExportDocx={() => exportResumeAsDocx(draft).catch((e) => toast.error(e.message))}
         onBack={() => setLoc("/dashboard")}
         onReorderOpen={() => setReorderOpen(true)}
-        customizeOpen={customizeOpen}
-        onCustomizeOpenChange={setCustomizeOpen}
       />
-
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[224px_minmax(420px,520px)_1fr] min-h-0 relative">
         <SectionsSidebar
           data={data}
@@ -383,8 +378,6 @@ function TopBar({
   onExportDocx,
   onBack,
   onReorderOpen,
-  customizeOpen,
-  onCustomizeOpenChange,
 }: {
   draft: Resume;
   templates: { id: string; name: string }[];
@@ -403,22 +396,18 @@ function TopBar({
   onExportDocx: () => void;
   onBack: () => void;
   onReorderOpen: () => void;
-  customizeOpen: boolean;
-  onCustomizeOpenChange: (v: boolean) => void;
 }) {
-
   const theme = draft.theme as Theme;
   return (
-    <div className="h-14 border-b border-border bg-background/90 backdrop-blur sticky top-0 z-30 flex items-center px-3 gap-1.5 no-print">
+    <div className="h-14 border-b border-border bg-background/90 backdrop-blur sticky top-0 z-30 flex items-center px-3 gap-2 no-print">
       <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back" className="shrink-0">
         <ChevronLeft className="size-5" />
       </Button>
       <Input
         value={draft.title || ""}
         onChange={(e) => onTitle(e.target.value)}
-        className="h-9 w-20 min-w-[80px] xs:w-28 sm:w-44 font-medium"
+        className="h-9 w-32 sm:w-44 font-medium"
       />
-
       <span className="text-xs text-muted-foreground ml-2 hidden sm:inline-flex items-center gap-1 shrink-0">
         {saving ? (
           <>
@@ -434,7 +423,7 @@ function TopBar({
       </span>
       <div className="ml-auto flex items-center gap-1">
         <Select value={draft.templateId} onValueChange={onTemplate}>
-          <SelectTrigger className="h-9 w-24 xs:w-28 sm:w-36 md:w-44 shrink-0">
+          <SelectTrigger className="h-9 w-28 sm:w-36 md:w-44 shrink-0">
             <SelectValue placeholder="Template" />
           </SelectTrigger>
           <SelectContent>
@@ -444,14 +433,13 @@ function TopBar({
           </SelectContent>
         </Select>
 
-        <Sheet open={customizeOpen} onOpenChange={onCustomizeOpenChange}>
+        <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" className="gap-1.5 px-2 md:px-3 hidden sm:inline-flex">
+            <Button variant="ghost" className="gap-1.5 px-2 md:px-3">
               <Settings2 className="size-4" />
               <span className="hidden md:inline">Customize</span>
             </Button>
           </SheetTrigger>
-
           <SheetContent>
             <SheetHeader>
               <SheetTitle>Customize</SheetTitle>
@@ -543,10 +531,6 @@ function TopBar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onCustomizeOpenChange(true)}>
-              <Settings2 className="size-4 mr-2" />
-              Customize theme
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={onTogglePageGuides}>
               <FileDown className="size-4 mr-2" />
               {showPageGuides ? "Hide page guides" : "Show page guides"}
@@ -570,7 +554,6 @@ function TopBar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -632,8 +615,7 @@ function SectionsSidebar({
     ? data.sectionOrder
     : ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
   return (
-    <div className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border min-h-0 no-print hidden lg:block">
-
+    <div className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border min-h-0 no-print">
       <ScrollArea className="h-[calc(100vh-3.5rem)]">
         <div className="p-3 space-y-1">
           <div className="px-2 pt-2 pb-1 text-xs uppercase tracking-wider text-muted-foreground">

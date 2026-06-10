@@ -262,14 +262,14 @@
   left: 0;
   right: 0;
   height: 0;
-  border-top: 1.5px dashed color-mix(in oklab, var(--primary) 65%, transparent);
+  border-top: 1.5px dashed color-mix(in oklab, hsl(var(--primary)) 65%, transparent);
 }
 .page-guide-label {
   position: absolute;
   right: -64px;
   transform: translateY(-50%);
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -284,8 +284,8 @@
   right: 0;
   background: repeating-linear-gradient(
     -45deg,
-    color-mix(in oklab, var(--primary) 12%, transparent),
-    color-mix(in oklab, var(--primary) 12%, transparent) 6px,
+    color-mix(in oklab, hsl(var(--primary)) 12%, transparent),
+    color-mix(in oklab, hsl(var(--primary)) 12%, transparent) 6px,
     transparent 6px,
     transparent 12px
   );
@@ -302,6 +302,11 @@
   html, body { background: white !important; }
   .no-print { display: none !important; }
   .page-guide { display: none !important; }
+  .resume-page-container {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
   .resume-page {
     box-shadow: none !important;
     margin: 0 !important;

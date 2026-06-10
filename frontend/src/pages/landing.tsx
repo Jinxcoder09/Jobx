@@ -154,7 +154,7 @@ function BackgroundOrbs() {
         className="pointer-events-none absolute -top-40 -left-40 w-[520px] h-[520px] rounded-full opacity-40 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, color-mix(in oklab, var(--primary) 35%, transparent), transparent)",
+            "radial-gradient(closest-side, color-mix(in oklab, hsl(var(--primary)) 35%, transparent), transparent)",
         }}
       />
       <div
@@ -162,7 +162,7 @@ function BackgroundOrbs() {
         className="pointer-events-none absolute -bottom-32 -right-32 w-[460px] h-[460px] rounded-full opacity-40 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, color-mix(in oklab, var(--accent) 40%, transparent), transparent)",
+            "radial-gradient(closest-side, color-mix(in oklab, hsl(var(--accent)) 40%, transparent), transparent)",
         }}
       />
       <FloatingCircle className="top-12 right-1/3 size-3 bg-primary/60" delay={0} />
@@ -184,23 +184,6 @@ function FloatingCircle({ className, delay }: { className?: string; delay: numbe
 }
 
 function HeroPreview() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.62);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    function handleResize() {
-      if (!el) return;
-      const newScale = Math.min(0.62, el.offsetWidth / 816);
-      setScale(newScale);
-    }
-    handleResize();
-    const ro = new ResizeObserver(handleResize);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   const previewResume = useMemo(
     () => ({
       id: "hero",
@@ -223,13 +206,12 @@ function HeroPreview() {
         <FloatingChip icon={<FileDown className="size-3.5" />} text="PDF ready" />
       </div>
       <div
-        ref={containerRef}
-        className="rounded-2xl border border-border bg-white shadow-2xl shadow-primary/10 overflow-hidden w-full"
-        style={{ height: Math.round(742 * scale) }}
+        className="rounded-2xl border border-border bg-white shadow-2xl shadow-primary/10 overflow-hidden"
+        style={{ height: 460 }}
       >
         <div
           style={{
-            transform: `scale(${scale})`,
+            transform: "scale(0.62)",
             transformOrigin: "top left",
             width: "8.5in",
           }}
@@ -240,7 +222,6 @@ function HeroPreview() {
     </div>
   );
 }
-
 
 function FloatingChip({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
@@ -257,13 +238,13 @@ function FloatingChip({ icon, text }: { icon: React.ReactNode; text: string }) {
 }
 
 function ScoreOrb({ score, label }: { score: number; label: string }) {
-  const data = [{ name: "score", value: score, fill: "var(--primary)" }];
+  const data = [{ name: "score", value: score, fill: "hsl(var(--primary))" }];
   return (
     <div className="rounded-2xl bg-card border border-border shadow-lg px-3 py-3 w-32 flex flex-col items-center">
       <div style={{ width: 88, height: 88 }}>
         <ResponsiveContainer>
           <RadialBarChart innerRadius="65%" outerRadius="100%" data={data} startAngle={90} endAngle={-270}>
-            <RadialBar dataKey="value" background={{ fill: "color-mix(in oklab, var(--primary) 12%, transparent)" }} cornerRadius={20} />
+            <RadialBar dataKey="value" background={{ fill: "color-mix(in oklab, hsl(var(--primary)) 12%, transparent)" }} cornerRadius={20} />
           </RadialBarChart>
         </ResponsiveContainer>
         <div className="-mt-[68px] text-center pointer-events-none">
@@ -403,32 +384,6 @@ function TemplateMarquee({
   templates: { id: string; name: string; description?: string; accentColor: string; fontFamily: string; layout: string; category?: string }[];
   onUse: (id: string, name: string) => void;
 }) {
-  const gridRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.27);
-
-  useEffect(() => {
-    const el = gridRef.current;
-    if (!el) return;
-    function handleResize() {
-      if (!el) return;
-      const w = el.offsetWidth;
-      let cols = 4;
-      if (window.innerWidth < 768) {
-        cols = 2;
-      } else if (window.innerWidth < 1024) {
-        cols = 3;
-      }
-      const gap = 16;
-      const cardWidth = (w - gap * (cols - 1)) / cols;
-      const newScale = cardWidth / 816;
-      setScale(newScale);
-    }
-    handleResize();
-    const ro = new ResizeObserver(handleResize);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   return (
     <section className="border-t border-border bg-muted/30">
       <div className="max-w-6xl mx-auto px-6 py-20">
@@ -437,7 +392,7 @@ function TemplateMarquee({
           title="12 templates. 0 boring."
           sub="Each template is hand-tuned for clarity, ATS compatibility, and printable beauty."
         />
-        <div ref={gridRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-12">
           {templates.slice(0, 8).map((t, i) => {
             const previewResume = {
               id: `tm-${t.id}`,
@@ -463,10 +418,10 @@ function TemplateMarquee({
                   onClick={() => onUse(t.id, t.name)}
                   className="group block w-full text-left rounded-xl bg-card border border-card-border overflow-hidden hover-elevate"
                 >
-                  <div className="bg-white relative overflow-hidden" style={{ height: Math.round(815 * scale) }}>
+                  <div className="bg-white relative" style={{ height: 220 }}>
                     <div
                       style={{
-                        transform: `scale(${scale})`,
+                        transform: "scale(0.27)",
                         transformOrigin: "top left",
                         width: "8.5in",
                       }}
@@ -488,7 +443,6 @@ function TemplateMarquee({
             );
           })}
         </div>
-
         <div className="text-center mt-8">
           <Link href="/templates">
             <Button variant="outline" className="gap-2">
@@ -543,27 +497,27 @@ function AtsShowcase() {
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="you" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="others" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--muted-foreground)" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="var(--muted-foreground)" stopOpacity={0} />
+                  <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="color-mix(in oklab, var(--border) 60%, transparent)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="week" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
+              <CartesianGrid stroke="color-mix(in oklab, hsl(var(--border)) 60%, transparent)" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
               <Tooltip
                 contentStyle={{
-                  background: "var(--popover)",
-                  border: "1px solid var(--border)",
+                  background: "hsl(var(--popover))",
+                  border: "1px solid hsl(var(--border))",
                   borderRadius: 8,
-                  color: "var(--popover-foreground)",
+                  color: "hsl(var(--popover-foreground))",
                 }}
               />
-              <Area type="monotone" dataKey="others" stroke="var(--muted-foreground)" fill="url(#others)" strokeWidth={1.5} />
-              <Area type="monotone" dataKey="you" stroke="var(--primary)" fill="url(#you)" strokeWidth={2.5} />
+              <Area type="monotone" dataKey="others" stroke="hsl(var(--muted-foreground))" fill="url(#others)" strokeWidth={1.5} />
+              <Area type="monotone" dataKey="you" stroke="hsl(var(--primary))" fill="url(#you)" strokeWidth={2.5} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -597,11 +551,11 @@ function FeatureBullet({ icon, text }: { icon: React.ReactNode; text: string }) 
 
 function CoverageRing() {
   const data = [
-    { name: "Summary", value: 22, color: "var(--primary)" },
-    { name: "Experience", value: 30, color: "var(--accent)" },
-    { name: "Skills", value: 18, color: "color-mix(in oklab, var(--primary) 50%, var(--accent))" },
-    { name: "Education", value: 15, color: "color-mix(in oklab, var(--primary) 70%, white)" },
-    { name: "Projects", value: 15, color: "color-mix(in oklab, var(--accent) 60%, white)" },
+    { name: "Summary", value: 22, color: "hsl(var(--primary))" },
+    { name: "Experience", value: 30, color: "hsl(var(--accent))" },
+    { name: "Skills", value: 18, color: "color-mix(in oklab, hsl(var(--primary)) 50%, hsl(var(--accent)))" },
+    { name: "Education", value: 15, color: "color-mix(in oklab, hsl(var(--primary)) 70%, white)" },
+    { name: "Projects", value: 15, color: "color-mix(in oklab, hsl(var(--accent)) 60%, white)" },
   ];
   return (
     <div className="grid grid-cols-2 gap-4 items-center">
