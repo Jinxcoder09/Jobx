@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,6 +12,8 @@ import Dashboard from "./pages/dashboard";
 import Templates from "./pages/templates";
 import Builder from "./pages/builder";
 import Preview from "./pages/preview";
+
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,6 +38,13 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetch(`${BASE}/api/healthz`).catch(() => {});
+    }, 25 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
