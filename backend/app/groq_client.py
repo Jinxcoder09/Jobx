@@ -51,8 +51,8 @@ async def groq_chat(
 
         response = await _client.chat.completions.create(**kwargs)
         content = response.choices[0].message.content
-        if content is None:
-            raise ValueError("Groq returned no content")
+        if content is None or content.strip() == "":
+            raise ValueError("Groq returned empty content")
         return content.strip()
 
     try:
@@ -77,12 +77,12 @@ async def groq_chat(
             ]
             return await _call(relaxed_messages, chosen_model, False)
 
-        # Model not found → try fallback
+        # Model not found OR returned empty content → try fallback
         if (
-            re.search(r"model.*not.*found|decommissioned|invalid_model", msg, re.I)
+            re.search(r"model.*not.*found|decommissioned|invalid_model|empty content", msg, re.I)
             and chosen_model != settings.GROQ_FALLBACK_MODEL
         ):
-            logger.warning("Primary model unavailable; using fallback: %s", msg)
+            logger.warning("Primary model unavailable or empty; using fallback: %s", msg)
             return await _call(messages, settings.GROQ_FALLBACK_MODEL, json_mode)
 
         raise
