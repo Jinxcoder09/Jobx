@@ -695,7 +695,7 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
       }
       return combinedPages;
     }
-  }, [heights, isTwo]);
+  }, [heights, isTwo, data, theme, templateId, order]);
 
   return (
     <div

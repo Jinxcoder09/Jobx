@@ -205,19 +205,22 @@ export default function Builder() {
   }, [draft]);
 
   function patchData(p: Partial<ResumeData>) {
-    if (!draft) return;
     dirtyRef.current = true;
-    setDraft({ ...draft, data: { ...(draft.data as ResumeData), ...p } });
+    setDraft((current) => {
+      if (!current) return current;
+      return { ...current, data: { ...(current.data as ResumeData), ...p } };
+    });
   }
   function patchTheme(p: Partial<Theme>) {
-    if (!draft) return;
     dirtyRef.current = true;
-    setDraft({ ...draft, theme: { ...(draft.theme as Theme), ...p } });
+    setDraft((current) => {
+      if (!current) return current;
+      return { ...current, theme: { ...(current.theme as Theme), ...p } };
+    });
   }
   function patchResume(p: Partial<Resume>) {
-    if (!draft) return;
     dirtyRef.current = true;
-    setDraft({ ...draft, ...p });
+    setDraft((current) => (current ? { ...current, ...p } : current));
   }
 
   if (isLoading || !draft)
@@ -775,6 +778,43 @@ function FormField({ label, value, onChange, type = "text" }: { label: string; v
   );
 }
 
+function parseCommaList(value: string): string[] {
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function CommaListInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value?: string[];
+  onChange: (v: string[]) => void;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState((value || []).join(", "));
+
+  useEffect(() => {
+    const next = (value || []).join(", ");
+    setText((current) => (parseCommaList(current).join(", ") === next ? current : next));
+  }, [value]);
+
+  return (
+    <Input
+      className="mt-1"
+      placeholder={placeholder}
+      value={text}
+      onChange={(e) => {
+        const next = e.target.value;
+        setText(next);
+        onChange(parseCommaList(next));
+      }}
+    />
+  );
+}
+
 function SummaryEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const ai = useAiGenerateSummary();
   const fix = useAiFixGrammar();
@@ -1073,11 +1113,10 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
             </div>
             <div className="mt-3">
               <Label>Technologies (comma separated)</Label>
-              <Input
-                className="mt-1"
+              <CommaListInput
                 placeholder="e.g. Python, FastAPI, OpenAI"
-                value={(it.technologies || []).join(", ")}
-                onChange={(e) => update(idx, { technologies: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+                value={it.technologies || []}
+                onChange={(technologies) => update(idx, { technologies })}
               />
             </div>
           </Card>
@@ -1148,10 +1187,9 @@ function SkillsEditor({ data, setField }: { data: ResumeData; setField: <K exten
             <FormField label="Category" value={it.category} onChange={(v) => update(idx, { category: v })} />
             <div className="mt-2">
               <Label>Skills (comma separated)</Label>
-              <Input
-                className="mt-1"
-                value={(it.items || []).join(", ")}
-                onChange={(e) => update(idx, { items: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+              <CommaListInput
+                value={it.items || []}
+                onChange={(items) => update(idx, { items })}
               />
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {(it.items || []).map((s, i) => (
