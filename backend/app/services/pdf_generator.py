@@ -747,12 +747,43 @@ async def generate_pdf_from_html(html_content: str, css_content: str) -> bytes:
         context = await browser.new_context()
         page = await context.new_page()
         
+        # Inject @page margins so every page (including page 2+) gets proper whitespace.
+        # The resume-page divs already carry 0.6in/0.7in padding via inline styles for page 1,
+        # but Playwright needs explicit @page margins for the page break handling.
+        page_css = """
+        @page {
+            size: A4;
+            margin: 0.55in 0.7in;
+        }
+        /* Prevent any element from being clipped mid-line at a page break */
+        body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .resume-page {
+            /* Let the browser's print engine decide page breaks, don't force avoid */
+            break-inside: auto;
+            page-break-inside: auto;
+        }
+        .resume-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            orphans: 4;
+            widows: 4;
+        }
+        .resume-section li {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        """
+        
         # Prepare HTML document with styles and fonts loaded
         full_html = f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
+{page_css}
 {css_content}
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -766,12 +797,12 @@ async def generate_pdf_from_html(html_content: str, css_content: str) -> bytes:
         # Ensure all web fonts are fully loaded
         await page.evaluate("document.fonts.ready")
         
-        # Print to A4 PDF with exact dimensions
+        # Print to A4 PDF — margins are set via @page CSS above so the
+        # browser print engine applies them on every page including page 2+.
         pdf_bytes = await page.pdf(
             print_background=True,
-            width="210mm",
-            height="297mm",
-            margin={"top": "0", "right": "0", "bottom": "0", "left": "0"}
+            format="A4",
+            margin={"top": "0.55in", "right": "0.7in", "bottom": "0.55in", "left": "0.7in"}
         )
         await browser.close()
         return pdf_bytes

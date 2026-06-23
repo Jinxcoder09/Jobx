@@ -85,11 +85,30 @@ export async function exportResumeAsPdf(resume: Resume): Promise<void> {
     .join("\n");
 
   const html = pages
-    .map((p) => {
+    .map((p, idx) => {
       const clone = p.cloneNode(true) as HTMLElement;
-      const style = clone.style as any;
-      style.webkitPrintColorAdjust = "exact";
-      style.printColorAdjust = "exact";
+      const s = clone.style as CSSStyleDeclaration & Record<string, string>;
+
+      // Remove inline padding from the page container — the backend @page CSS
+      // supplies margins (0.55in top/bottom, 0.7in left/right) for every page.
+      // Keeping the inline padding would cause double-whitespace on page 1 and
+      // incorrect layout on subsequent pages.
+      s.padding = "0";
+      s.margin = "0";
+      s.width = "100%";
+      s.minHeight = "auto";
+      s.boxShadow = "none";
+
+      // Let Playwright's print engine handle page breaks naturally.
+      s.pageBreakAfter = idx < pages.length - 1 ? "always" : "auto";
+      s.breakAfter = idx < pages.length - 1 ? "page" : "auto";
+      s.breakInside = "auto";
+      s.pageBreakInside = "auto";
+
+      // Ensure colors print correctly
+      s.webkitPrintColorAdjust = "exact";
+      (s as any).printColorAdjust = "exact";
+
       return clone.outerHTML;
     })
     .join("\n");
