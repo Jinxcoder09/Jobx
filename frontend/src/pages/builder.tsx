@@ -898,6 +898,18 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
   function remove(idx: number) {
     setField("experience", items.filter((_, i) => i !== idx));
   }
+  function addBullet(idx: number, item: ExperienceItem) {
+    const bullets = item.bullets || [];
+    const nextIndex = bullets.length;
+    const itemKey = item.id || String(idx);
+    update(idx, { bullets: [...bullets, ""] });
+    window.setTimeout(() => {
+      const field = document.querySelector<HTMLTextAreaElement>(
+        `[data-experience-bullet="${itemKey}:${nextIndex}"]`,
+      );
+      field?.focus();
+    }, 0);
+  }
   return (
     <div className="space-y-3">
       <SortableList items={items} onReorder={(v) => setField("experience", v)}>
@@ -932,6 +944,8 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
                   <div key={bi} className="flex gap-2">
                     <Textarea
                       rows={2}
+                      data-experience-bullet={`${it.id || idx}:${bi}`}
+                      placeholder="Describe the result, metric, or contribution"
                       value={b}
                       onChange={(e) =>
                         update(idx, { bullets: (it.bullets || []).map((x, i) => (i === bi ? e.target.value : x)) })
@@ -973,7 +987,7 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
                 <Button
                   variant="ghost"
                   className="gap-1.5"
-                  onClick={() => update(idx, { bullets: [...(it.bullets || []), ""] })}
+                  onClick={() => addBullet(idx, it)}
                 >
                   <Plus className="size-4" /> Add bullet
                 </Button>
@@ -1043,6 +1057,18 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
   function update(idx: number, patch: Partial<ProjectItem>) {
     setField("projects", items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
+  function addBullet(idx: number, project: ProjectItem) {
+    const bullets = project.bullets || [];
+    const nextIndex = bullets.length;
+    const projectKey = project.id || String(idx);
+    update(idx, { bullets: [...bullets, ""] });
+    window.setTimeout(() => {
+      const field = document.querySelector<HTMLTextAreaElement>(
+        `[data-project-bullet="${projectKey}:${nextIndex}"]`,
+      );
+      field?.focus();
+    }, 0);
+  }
   return (
     <div className="space-y-3">
       <SortableList items={items} onReorder={(v) => setField("projects", v)}>
@@ -1070,6 +1096,8 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
                   <div key={bi} className="flex gap-2">
                     <Textarea
                       rows={2}
+                      data-project-bullet={`${it.id || idx}:${bi}`}
+                      placeholder="Describe the result, metric, or contribution"
                       value={b}
                       onChange={(e) => update(idx, { bullets: (it.bullets || []).map((x, i) => (i === bi ? e.target.value : x)) })}
                     />
@@ -1106,7 +1134,7 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
                     </div>
                   </div>
                 ))}
-                <Button variant="ghost" className="gap-1.5" onClick={() => update(idx, { bullets: [...(it.bullets || []), ""] })}>
+                <Button variant="ghost" className="gap-1.5" onClick={() => addBullet(idx, it)}>
                   <Plus className="size-4" /> Add bullet
                 </Button>
               </div>
