@@ -963,12 +963,15 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
                         disabled={improve.isPending}
                         onClick={async () => {
                           try {
+                            const currentText = (itemsRef.current[idx]?.bullets || [])[bi] || b || "";
                             const out = await improve.mutateAsync({
-                              data: { text: b || "", context: `${it.role} at ${it.company}` },
+                              data: { text: currentText, context: `${it.role} at ${it.company}` },
                             });
+                            const freshBullets = itemsRef.current[idx]?.bullets || [];
                             update(idx, {
-                              bullets: (it.bullets || []).map((x, i) => (i === bi ? out.text : x)),
+                              bullets: freshBullets.map((x, i) => (i === bi ? out.text : x)),
                             });
+                            toast.success("Bullet improved");
                           } catch (e) {
                             toast.error(e instanceof Error ? e.message : "AI failed");
                           }
@@ -1142,12 +1145,15 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
                         disabled={improve.isPending}
                         onClick={async () => {
                           try {
+                            const currentText = (itemsRef.current[idx]?.bullets || [])[bi] || b || itemsRef.current[idx]?.description || "";
                             const out = await improve.mutateAsync({
-                              data: { text: b || it.description || "", context: `${it.name} project` },
+                              data: { text: currentText, context: `${it.name} project` },
                             });
+                            const freshBullets = itemsRef.current[idx]?.bullets || [];
                             update(idx, {
-                              bullets: (it.bullets || []).map((x, i) => (i === bi ? out.text : x)),
+                              bullets: freshBullets.map((x, i) => (i === bi ? out.text : x)),
                             });
+                            toast.success("Bullet improved");
                           } catch (e) {
                             toast.error(e instanceof Error ? e.message : "AI failed");
                           }
