@@ -9,6 +9,7 @@ import type {
   SkillGroup,
   SimpleItem,
 } from "@/lib/types";
+import { deduplicateSectionOrder } from "@/lib/types";
 
 interface Props {
   resume: Resume;
@@ -379,9 +380,10 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
   const theme = resume.theme || ({} as Theme);
   const templateId = resume.templateId || "modern";
 
+  const defaultOrder = ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
   const order = data.sectionOrder?.length
-    ? data.sectionOrder
-    : ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
+    ? deduplicateSectionOrder(data.sectionOrder)
+    : defaultOrder;
 
   const ctx: Ctx = { data, theme, templateId };
 

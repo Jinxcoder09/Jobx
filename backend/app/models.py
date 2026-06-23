@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ─── Resume sub-models ────────────────────────────────────────────────────────
@@ -92,6 +92,21 @@ class ResumeData(BaseModel):
             "skills", "certifications", "achievements", "languages",
         ]
     )
+
+    @field_validator("sectionOrder", mode="before")
+    @classmethod
+    def deduplicate_section_order(cls, v: Any) -> list[str]:
+        """Ensure sectionOrder has no duplicate entries."""
+        if not isinstance(v, list):
+            return v
+        # Preserve order while removing duplicates using dict
+        seen = set()
+        result = []
+        for item in v:
+            if item not in seen:
+                seen.add(item)
+                result.append(item)
+        return result
 
 
 class Theme(BaseModel):

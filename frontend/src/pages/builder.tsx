@@ -85,7 +85,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { FONT_OPTIONS, SECTION_LABELS, uid } from "@/lib/types";
+import { FONT_OPTIONS, SECTION_LABELS, uid, deduplicateSectionOrder } from "@/lib/types";
 import { defaultTheme, emptyData } from "@/lib/defaults";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -229,9 +229,10 @@ export default function Builder() {
 
   const data = draft.data as ResumeData;
   const theme = draft.theme as Theme;
+  const defaultOrder = ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
   const order = data.sectionOrder?.length
-    ? data.sectionOrder
-    : ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
+    ? deduplicateSectionOrder(data.sectionOrder)
+    : defaultOrder;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -625,9 +626,10 @@ function SectionsSidebar({
   onActive: (k: ActiveSection) => void;
   onReorder: (next: string[]) => void;
 }) {
+  const defaultOrder = ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
   const order = data.sectionOrder?.length
-    ? data.sectionOrder
-    : ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
+    ? deduplicateSectionOrder(data.sectionOrder)
+    : defaultOrder;
   return (
     <div className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border min-h-0 no-print">
       <ScrollArea className="h-[calc(100vh-3.5rem)]">
