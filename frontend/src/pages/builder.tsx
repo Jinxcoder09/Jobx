@@ -958,11 +958,11 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
                         variant="ghost"
                         size="icon"
                         title="Improve with AI"
+                        disabled={improve.isPending}
                         onClick={async () => {
-                          if (!b.trim()) return;
                           try {
                             const out = await improve.mutateAsync({
-                              data: { text: b, context: `${it.role} at ${it.company}` },
+                              data: { text: b || "", context: `${it.role} at ${it.company}` },
                             });
                             update(idx, {
                               bullets: (it.bullets || []).map((x, i) => (i === bi ? out.text : x)),
@@ -972,7 +972,7 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
                           }
                         }}
                       >
-                        <Sparkles className="size-4 text-primary" />
+                        {improve.isPending ? <Loader2 className="size-4 animate-spin text-primary" /> : <Sparkles className="size-4 text-primary" />}
                       </Button>
                       <Button
                         variant="ghost"
@@ -1135,11 +1135,11 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
                         variant="ghost"
                         size="icon"
                         title="Improve with AI"
+                        disabled={improve.isPending}
                         onClick={async () => {
-                          if (!b.trim()) return;
                           try {
                             const out = await improve.mutateAsync({
-                              data: { text: b, context: `${it.name} project` },
+                              data: { text: b || it.description || "", context: `${it.name} project` },
                             });
                             update(idx, {
                               bullets: (it.bullets || []).map((x, i) => (i === bi ? out.text : x)),
@@ -1149,7 +1149,7 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
                           }
                         }}
                       >
-                        <Sparkles className="size-4 text-primary" />
+                        {improve.isPending ? <Loader2 className="size-4 animate-spin text-primary" /> : <Sparkles className="size-4 text-primary" />}
                       </Button>
                       <Button
                         variant="ghost"
