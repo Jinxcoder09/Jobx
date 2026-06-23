@@ -162,3 +162,16 @@ export const FONT_OPTIONS = [
   "Lora",
   "JetBrains Mono",
 ];
+
+export function deduplicateSectionOrder(order: string[]): string[] {
+  if (!Array.isArray(order)) return order;
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of order) {
+    if (!seen.has(item)) {
+      seen.add(item);
+      result.push(item);
+    }
+  }
+  return result;
+}

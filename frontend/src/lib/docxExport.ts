@@ -9,6 +9,7 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import type { Resume, ResumeData } from "./types";
+import { deduplicateSectionOrder } from "./types";
 
 function p(text: string, opts: { bold?: boolean; size?: number; color?: string } = {}): Paragraph {
   return new Paragraph({
@@ -47,9 +48,10 @@ export async function exportResumeAsDocx(resume: Resume) {
   const accent = safeHex(resume.theme?.accentColor, "2563eb");
   const primary = safeHex(resume.theme?.primaryColor, "0f172a");
   const personal = data.personal || {};
+  const defaultOrder = ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
   const order = data.sectionOrder?.length
-    ? data.sectionOrder
-    : ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
+    ? deduplicateSectionOrder(data.sectionOrder)
+    : defaultOrder;
 
   const children: Paragraph[] = [];
 

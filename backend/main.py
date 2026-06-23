@@ -4,9 +4,11 @@ jobX — FastAPI backend entry point
 Replaces the original TypeScript/Express api-server.
 Same routes, same request/response shapes, same MongoDB Atlas + Groq behaviour.
 """
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
+import httpx
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,6 +31,25 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("jobx")
+
+
+# ─── Keep-alive (prevent Render from spinning down) ──────────────────────────
+
+async def keep_alive():
+    url = settings.RENDER_EXTERNAL_URL
+    if not url:
+        logger.info("RENDER_EXTERNAL_URL not set — keep-alive disabled")
+        return
+    health_url = f"{url.rstrip('/')}/api/healthz"
+    logger.info("Keep-alive started — pinging %s every 25 min", health_url)
+    async with httpx.AsyncClient() as client:
+        while True:
+            await asyncio.sleep(25 * 60)
+            try:
+                r = await client.get(health_url, timeout=10)
+                logger.info("Keep-alive ping → %s", r.status_code)
+            except Exception as exc:
+                logger.warning("Keep-alive ping failed: %s", exc)
 
 
 # ─── Lifespan (startup / shutdown) ───────────────────────────────────────────
@@ -56,8 +77,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not verify/install Playwright Chromium at startup: {e}")
         
+    task = asyncio.create_task(keep_alive())
     yield
     logger.info("Shutting down — closing MongoDB connection…")
+    task.cancel()
     await close_db()
 
 
@@ -73,7 +96,8 @@ app = FastAPI(
 # CORS — mirrors the original Express cors() behaviour
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://jobx-delta.vercel.app"],
+    allow_origins=settings.cors_origins_list,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

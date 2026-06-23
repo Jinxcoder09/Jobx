@@ -9,6 +9,7 @@ import type {
   SkillGroup,
   SimpleItem,
 } from "@/lib/types";
+import { deduplicateSectionOrder } from "@/lib/types";
 
 interface Props {
   resume: Resume;
@@ -379,9 +380,10 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
   const theme = resume.theme || ({} as Theme);
   const templateId = resume.templateId || "modern";
 
+  const defaultOrder = ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
   const order = data.sectionOrder?.length
-    ? data.sectionOrder
-    : ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
+    ? deduplicateSectionOrder(data.sectionOrder)
+    : defaultOrder;
 
   const ctx: Ctx = { data, theme, templateId };
 
@@ -547,18 +549,6 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
   const getSingleFlowables = () => {
     const list: any[] = [];
     
-    if (data.summary) {
-      list.push({
-        id: "summary",
-        render: () => (
-          <div className="resume-section summary-item" style={{ marginBottom: theme.sectionSpacing, breakInside: "avoid", pageBreakInside: "avoid" }}>
-            <SectionTitle theme={theme} templateId={templateId}>Summary</SectionTitle>
-            <div style={{ fontSize: "0.95em" }}>{data.summary}</div>
-          </div>
-        )
-      });
-    }
-    
     order.forEach((key) => {
       list.push(...getFlowablesForSection(key));
     });
@@ -705,7 +695,7 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
       }
       return combinedPages;
     }
-  }, [heights, isTwo]);
+  }, [heights, isTwo, data, theme, templateId, order]);
 
   return (
     <div
@@ -722,6 +712,25 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
           word-break: break-word;
           overflow-wrap: break-word;
           white-space: normal;
+        }
+        .resume-page {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .resume-section {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          orphans: 3;
+          widows: 3;
+        }
+        .resume-section ul,
+        .resume-section ol {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .resume-section li {
+          break-inside: avoid;
+          page-break-inside: avoid;
         }
         .flowable-debug-border {
           outline: 1px dashed rgba(239, 68, 68, 0.4);
@@ -843,7 +852,7 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
                 className="resume-page relative"
                 style={{
                   width: "210mm",
-                  height: "297mm",
+                  minHeight: "297mm",
                   padding: "0.6in 0.7in",
                   boxSizing: "border-box",
                   backgroundColor: "white",
@@ -853,7 +862,9 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
                   fontSize: `${theme.fontSize ?? 11}pt`,
                   lineHeight: theme.lineSpacing ?? 1.4,
                   color: theme.primaryColor || "#0b0b0c",
-                  overflow: "hidden",
+                  pageBreakAfter: "always",
+                  breakAfter: "page",
+                  breakInside: "avoid",
                 }}
               >
                 {pageIdx === 0 && (

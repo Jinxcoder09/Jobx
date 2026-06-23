@@ -85,7 +85,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { FONT_OPTIONS, SECTION_LABELS, uid } from "@/lib/types";
+import { FONT_OPTIONS, SECTION_LABELS, uid, deduplicateSectionOrder } from "@/lib/types";
 import { defaultTheme, emptyData } from "@/lib/defaults";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -197,7 +197,7 @@ export default function Builder() {
           onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Save failed"),
         },
       );
-    }, 800);
+    }, 300);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
@@ -205,19 +205,22 @@ export default function Builder() {
   }, [draft]);
 
   function patchData(p: Partial<ResumeData>) {
-    if (!draft) return;
     dirtyRef.current = true;
-    setDraft({ ...draft, data: { ...(draft.data as ResumeData), ...p } });
+    setDraft((current) => {
+      if (!current) return current;
+      return { ...current, data: { ...(current.data as ResumeData), ...p } };
+    });
   }
   function patchTheme(p: Partial<Theme>) {
-    if (!draft) return;
     dirtyRef.current = true;
-    setDraft({ ...draft, theme: { ...(draft.theme as Theme), ...p } });
+    setDraft((current) => {
+      if (!current) return current;
+      return { ...current, theme: { ...(current.theme as Theme), ...p } };
+    });
   }
   function patchResume(p: Partial<Resume>) {
-    if (!draft) return;
     dirtyRef.current = true;
-    setDraft({ ...draft, ...p });
+    setDraft((current) => (current ? { ...current, ...p } : current));
   }
 
   if (isLoading || !draft)
@@ -229,9 +232,10 @@ export default function Builder() {
 
   const data = draft.data as ResumeData;
   const theme = draft.theme as Theme;
+  const defaultOrder = ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
   const order = data.sectionOrder?.length
-    ? data.sectionOrder
-    : ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
+    ? deduplicateSectionOrder(data.sectionOrder)
+    : defaultOrder;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -625,9 +629,10 @@ function SectionsSidebar({
   onActive: (k: ActiveSection) => void;
   onReorder: (next: string[]) => void;
 }) {
+  const defaultOrder = ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
   const order = data.sectionOrder?.length
-    ? data.sectionOrder
-    : ["summary", "experience", "education", "projects", "skills", "certifications", "achievements", "languages"];
+    ? deduplicateSectionOrder(data.sectionOrder)
+    : defaultOrder;
   return (
     <div className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border min-h-0 no-print">
       <ScrollArea className="h-[calc(100vh-3.5rem)]">
@@ -773,6 +778,43 @@ function FormField({ label, value, onChange, type = "text" }: { label: string; v
   );
 }
 
+function parseCommaList(value: string): string[] {
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function CommaListInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value?: string[];
+  onChange: (v: string[]) => void;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState((value || []).join(", "));
+
+  useEffect(() => {
+    const next = (value || []).join(", ");
+    setText((current) => (parseCommaList(current).join(", ") === next ? current : next));
+  }, [value]);
+
+  return (
+    <Input
+      className="mt-1"
+      placeholder={placeholder}
+      value={text}
+      onChange={(e) => {
+        const next = e.target.value;
+        setText(next);
+        onChange(parseCommaList(next));
+      }}
+    />
+  );
+}
+
 function SummaryEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const ai = useAiGenerateSummary();
   const fix = useAiFixGrammar();
@@ -856,6 +898,18 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
   function remove(idx: number) {
     setField("experience", items.filter((_, i) => i !== idx));
   }
+  function addBullet(idx: number, item: ExperienceItem) {
+    const bullets = item.bullets || [];
+    const nextIndex = bullets.length;
+    const itemKey = item.id || String(idx);
+    update(idx, { bullets: [...bullets, ""] });
+    window.setTimeout(() => {
+      const field = document.querySelector<HTMLTextAreaElement>(
+        `[data-experience-bullet="${itemKey}:${nextIndex}"]`,
+      );
+      field?.focus();
+    }, 0);
+  }
   return (
     <div className="space-y-3">
       <SortableList items={items} onReorder={(v) => setField("experience", v)}>
@@ -890,6 +944,8 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
                   <div key={bi} className="flex gap-2">
                     <Textarea
                       rows={2}
+                      data-experience-bullet={`${it.id || idx}:${bi}`}
+                      placeholder="Describe the result, metric, or contribution"
                       value={b}
                       onChange={(e) =>
                         update(idx, { bullets: (it.bullets || []).map((x, i) => (i === bi ? e.target.value : x)) })
@@ -931,7 +987,7 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
                 <Button
                   variant="ghost"
                   className="gap-1.5"
-                  onClick={() => update(idx, { bullets: [...(it.bullets || []), ""] })}
+                  onClick={() => addBullet(idx, it)}
                 >
                   <Plus className="size-4" /> Add bullet
                 </Button>
@@ -997,8 +1053,21 @@ function EducationEditor({ data, setField }: { data: ResumeData; setField: <K ex
 
 function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const items = data.projects || [];
+  const improve = useAiImproveBullet();
   function update(idx: number, patch: Partial<ProjectItem>) {
     setField("projects", items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  }
+  function addBullet(idx: number, project: ProjectItem) {
+    const bullets = project.bullets || [];
+    const nextIndex = bullets.length;
+    const projectKey = project.id || String(idx);
+    update(idx, { bullets: [...bullets, ""] });
+    window.setTimeout(() => {
+      const field = document.querySelector<HTMLTextAreaElement>(
+        `[data-project-bullet="${projectKey}:${nextIndex}"]`,
+      );
+      field?.focus();
+    }, 0);
   }
   return (
     <div className="space-y-3">
@@ -1027,25 +1096,55 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
                   <div key={bi} className="flex gap-2">
                     <Textarea
                       rows={2}
+                      data-project-bullet={`${it.id || idx}:${bi}`}
+                      placeholder="Describe the result, metric, or contribution"
                       value={b}
                       onChange={(e) => update(idx, { bullets: (it.bullets || []).map((x, i) => (i === bi ? e.target.value : x)) })}
                     />
-                    <Button variant="ghost" size="icon" onClick={() => update(idx, { bullets: (it.bullets || []).filter((_, i) => i !== bi) })}>
-                      <Trash2 className="size-4" />
-                    </Button>
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Improve with AI"
+                        onClick={async () => {
+                          if (!b.trim()) return;
+                          try {
+                            const out = await improve.mutateAsync({
+                              data: { text: b, context: `${it.name} project` },
+                            });
+                            update(idx, {
+                              bullets: (it.bullets || []).map((x, i) => (i === bi ? out.text : x)),
+                            });
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "AI failed");
+                          }
+                        }}
+                      >
+                        <Sparkles className="size-4 text-primary" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          update(idx, { bullets: (it.bullets || []).filter((_, i) => i !== bi) })
+                        }
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
-                <Button variant="ghost" className="gap-1.5" onClick={() => update(idx, { bullets: [...(it.bullets || []), ""] })}>
+                <Button variant="ghost" className="gap-1.5" onClick={() => addBullet(idx, it)}>
                   <Plus className="size-4" /> Add bullet
                 </Button>
               </div>
             </div>
             <div className="mt-3">
               <Label>Technologies (comma separated)</Label>
-              <Input
-                className="mt-1"
-                value={(it.technologies || []).join(", ")}
-                onChange={(e) => update(idx, { technologies: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+              <CommaListInput
+                placeholder="e.g. Python, FastAPI, OpenAI"
+                value={it.technologies || []}
+                onChange={(technologies) => update(idx, { technologies })}
               />
             </div>
           </Card>
@@ -1116,10 +1215,9 @@ function SkillsEditor({ data, setField }: { data: ResumeData; setField: <K exten
             <FormField label="Category" value={it.category} onChange={(v) => update(idx, { category: v })} />
             <div className="mt-2">
               <Label>Skills (comma separated)</Label>
-              <Input
-                className="mt-1"
-                value={(it.items || []).join(", ")}
-                onChange={(e) => update(idx, { items: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+              <CommaListInput
+                value={it.items || []}
+                onChange={(items) => update(idx, { items })}
               />
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {(it.items || []).map((s, i) => (
