@@ -34,8 +34,6 @@ import {
   Pie,
   Cell,
   ResponsiveContainer,
-  RadialBarChart,
-  RadialBar,
   AreaChart,
   Area,
   CartesianGrid,
@@ -215,16 +213,21 @@ function HeroPreview() {
   }, [width]);
 
   return (
-    <div className="relative">
-      <div className="absolute -top-8 -left-8 hidden md:block">
+    <div className="relative px-8 pt-10 pb-6">
+      {/* ATS Score chip — top-left above the card */}
+      <div className="absolute top-0 left-0 hidden md:block z-10">
         <ScoreOrb score={92} label="ATS Score" />
       </div>
-      <div className="absolute -bottom-6 -right-4 hidden md:block">
-        <FloatingChip icon={<Wand2 className="size-3.5" />} text="AI summary" />
-      </div>
-      <div className="absolute top-1/2 -right-8 hidden md:block">
+      {/* PDF ready chip — right side mid-card */}
+      <div className="absolute top-1/2 -translate-y-1/2 right-0 hidden md:block z-10">
         <FloatingChip icon={<FileDown className="size-3.5" />} text="PDF ready" />
       </div>
+      {/* AI summary chip — bottom-right below the card */}
+      <div className="absolute bottom-0 right-6 hidden md:block z-10">
+        <FloatingChip icon={<Wand2 className="size-3.5" />} text="AI summary" />
+      </div>
+
+      {/* Resume preview card */}
       <div
         ref={containerRef}
         className="rounded-2xl border border-border bg-white shadow-2xl shadow-primary/10 overflow-hidden"
@@ -251,21 +254,38 @@ function FloatingChip({ icon, text }: { icon: React.ReactNode; text: string }) {
 }
 
 function ScoreOrb({ score, label }: { score: number; label: string }) {
-  const data = [{ name: "score", value: score, fill: "var(--color-primary)" }];
+  // Clean CSS conic-gradient ring — no chart library, pixel-perfect, always aligned
+  const pct = Math.round((score / 100) * 360);
   return (
-    <div className="rounded-2xl bg-card border border-border shadow-lg px-3 py-3 w-32 flex flex-col items-center">
-      <div style={{ width: 88, height: 88 }}>
-        <ResponsiveContainer>
-          <RadialBarChart innerRadius="65%" outerRadius="100%" data={data} startAngle={90} endAngle={-270}>
-            <RadialBar dataKey="value" background={{ fill: "color-mix(in oklab, var(--color-primary) 12%, transparent)" }} cornerRadius={20} />
-          </RadialBarChart>
-        </ResponsiveContainer>
-        <div className="-mt-[68px] text-center pointer-events-none">
-          <div className="text-2xl font-bold leading-none">{score}</div>
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.2 }}
+      className="rounded-2xl bg-card border border-border shadow-lg px-3 py-3 w-28 flex flex-col items-center gap-2"
+    >
+      {/* Conic-gradient donut ring */}
+      <div
+        className="relative flex items-center justify-center rounded-full"
+        style={{
+          width: 72,
+          height: 72,
+          background: `conic-gradient(var(--color-primary, #3b3df1) ${pct}deg, color-mix(in oklab, var(--color-primary, #3b3df1) 12%, transparent) ${pct}deg)`,
+        }}
+      >
+        <div
+          className="flex items-center justify-center bg-card rounded-full text-xl font-bold text-foreground"
+          style={{
+            width: 56,
+            height: 56,
+          }}
+        >
+          {score}
         </div>
       </div>
-      <div className="mt-1 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
-    </div>
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold text-center">
+        {label}
+      </div>
+    </motion.div>
   );
 }
 
