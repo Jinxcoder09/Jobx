@@ -8,6 +8,7 @@ import {
   useListTemplates,
   useAiGenerateSummary,
   useAiImproveBullet,
+  useAiGenerateBullets,
   useAiSuggestSkills,
   useAiFixGrammar,
   useAiAtsScore,
@@ -885,6 +886,7 @@ function SummaryEditor({ data, setField }: { data: ResumeData; setField: <K exte
 function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const items = data.experience || [];
   const improve = useAiImproveBullet();
+  const generate = useAiGenerateBullets();
   function update(idx: number, patch: Partial<ExperienceItem>) {
     const next = items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
     setField("experience", next);
@@ -984,13 +986,39 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
                     </div>
                   </div>
                 ))}
-                <Button
-                  variant="ghost"
-                  className="gap-1.5"
-                  onClick={() => addBullet(idx, it)}
-                >
-                  <Plus className="size-4" /> Add bullet
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    className="gap-1.5"
+                    onClick={() => addBullet(idx, it)}
+                  >
+                    <Plus className="size-4" /> Add bullet
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={generate.isPending || !it.role}
+                    onClick={async () => {
+                      try {
+                        const out = await generate.mutateAsync({
+                          data: {
+                            role: it.role,
+                            company: it.company,
+                            count: 4,
+                          },
+                        });
+                        const merged = Array.from(new Set([...(it.bullets || []), ...out.bullets]));
+                        update(idx, { bullets: merged });
+                        toast.success(`${out.bullets.length} bullets generated for "${it.role}"`);
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "AI failed");
+                      }
+                    }}
+                  >
+                    <Sparkles className="size-4" /> Generate with AI
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>
@@ -1054,6 +1082,7 @@ function EducationEditor({ data, setField }: { data: ResumeData; setField: <K ex
 function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const items = data.projects || [];
   const improve = useAiImproveBullet();
+  const generate = useAiGenerateBullets();
   function update(idx: number, patch: Partial<ProjectItem>) {
     setField("projects", items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
@@ -1134,9 +1163,36 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
                     </div>
                   </div>
                 ))}
-                <Button variant="ghost" className="gap-1.5" onClick={() => addBullet(idx, it)}>
-                  <Plus className="size-4" /> Add bullet
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="ghost" className="gap-1.5" onClick={() => addBullet(idx, it)}>
+                    <Plus className="size-4" /> Add bullet
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={generate.isPending || !it.name}
+                    onClick={async () => {
+                      try {
+                        const out = await generate.mutateAsync({
+                          data: {
+                            role: it.name,
+                            description: it.description,
+                            technologies: it.technologies,
+                            count: 4,
+                          },
+                        });
+                        const merged = Array.from(new Set([...(it.bullets || []), ...out.bullets]));
+                        update(idx, { bullets: merged });
+                        toast.success(`${out.bullets.length} bullets generated for "${it.name}"`);
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "AI failed");
+                      }
+                    }}
+                  >
+                    <Sparkles className="size-4" /> Generate with AI
+                  </Button>
+                </div>
               </div>
             </div>
             <div className="mt-3">

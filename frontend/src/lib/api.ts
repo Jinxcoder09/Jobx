@@ -254,6 +254,20 @@ export function useAiSuggestSkills(): UseMutationResult<
   });
 }
 
+export function useAiGenerateBullets(): UseMutationResult<
+  { bullets: string[] },
+  Error,
+  { data: { role?: string; company?: string; description?: string; technologies?: string[]; count?: number } }
+> {
+  return useMutation({
+    mutationFn: ({ data }) =>
+      apiFetch<{ bullets: string[] }>("/api/ai/bullets", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  });
+}
+
 export function useAiFixGrammar(): UseMutationResult<
   { text: string },
   Error,

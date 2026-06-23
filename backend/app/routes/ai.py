@@ -15,6 +15,8 @@ from fastapi import APIRouter
 
 from ..groq_client import groq_chat, extract_json
 from ..models import (
+    AiBulletsRequest,
+    AiBulletsResponse,
     AiGrammarRequest,
     AiImproveRequest,
     AiParseRequest,
@@ -106,6 +108,61 @@ async def ai_improve_bullet(body: AiImproveRequest) -> dict:
         max_tokens=120,
     )
     return {"text": text}
+
+
+# ─── /ai/bullets ─────────────────────────────────────────────────────────────
+
+@router.post("/ai/bullets", response_model=AiBulletsResponse)
+async def ai_generate_bullets(body: AiBulletsRequest) -> dict:
+    parts = []
+    if body.role:
+        parts.append(f"Role: {body.role}")
+    if body.company:
+        parts.append(f"Company: {body.company}")
+    if body.description:
+        parts.append(f"Description: {body.description}")
+    if body.technologies:
+        parts.append(f"Technologies: {', '.join(body.technologies)}")
+
+    context_str = "\n".join(parts) if parts else "General experience"
+
+    raw = await groq_chat(
+        [
+            {
+                "role": "system",
+                "content": (
+                    f"Generate {body.count or 4} resume bullet points. "
+                    "Each bullet: lead with a strong action verb, quantify impact, "
+                    "keep under 22 words, no first person, no buzzwords. "
+                    'Return STRICT JSON: {{"bullets":["bullet1","bullet2",...]}}'
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"{context_str}\n\n"
+                    "Generate achievement-focused bullet points for this experience."
+                ),
+            },
+        ],
+        temperature=0.5,
+        json_mode=True,
+        max_tokens=600,
+    )
+
+    bullets: list[str] = []
+    parsed = extract_json(raw)
+    if parsed and isinstance(parsed.get("bullets"), list):
+        bullets = [s.strip() for s in parsed["bullets"] if isinstance(s, str) and s.strip()]
+    else:
+        import re
+        bullets = [
+            re.sub(r'^[-*"\s]+|["\s]+$', "", s)
+            for s in re.split(r"[,\n]", raw)
+            if s.strip()
+        ][:body.count or 4]
+
+    return {"bullets": bullets}
 
 
 # ─── /ai/skills ──────────────────────────────────────────────────────────────

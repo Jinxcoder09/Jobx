@@ -180,6 +180,14 @@ class AiSkillsRequest(BaseModel):
     existing: Optional[list[str]] = None
 
 
+class AiBulletsRequest(BaseModel):
+    role: Optional[str] = None
+    company: Optional[str] = None
+    description: Optional[str] = None
+    technologies: Optional[list[str]] = None
+    count: Optional[int] = 4
+
+
 class AiGrammarRequest(BaseModel):
     text: str
 
@@ -201,6 +209,10 @@ class AiTextResponse(BaseModel):
 
 class AiSkillsResponse(BaseModel):
     skills: list[str]
+
+
+class AiBulletsResponse(BaseModel):
+    bullets: list[str]
 
 
 class AiScoreResponse(BaseModel):
