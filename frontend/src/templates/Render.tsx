@@ -713,6 +713,25 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
           overflow-wrap: break-word;
           white-space: normal;
         }
+        .resume-page {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .resume-section {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          orphans: 3;
+          widows: 3;
+        }
+        .resume-section ul,
+        .resume-section ol {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .resume-section li {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
         .flowable-debug-border {
           outline: 1px dashed rgba(239, 68, 68, 0.4);
           position: relative;
@@ -833,7 +852,7 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
                 className="resume-page relative"
                 style={{
                   width: "210mm",
-                  height: "297mm",
+                  minHeight: "297mm",
                   padding: "0.6in 0.7in",
                   boxSizing: "border-box",
                   backgroundColor: "white",
@@ -843,7 +862,9 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
                   fontSize: `${theme.fontSize ?? 11}pt`,
                   lineHeight: theme.lineSpacing ?? 1.4,
                   color: theme.primaryColor || "#0b0b0c",
-                  overflow: "hidden",
+                  pageBreakAfter: "always",
+                  breakAfter: "page",
+                  breakInside: "avoid",
                 }}
               >
                 {pageIdx === 0 && (

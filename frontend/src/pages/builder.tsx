@@ -197,7 +197,7 @@ export default function Builder() {
           onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Save failed"),
         },
       );
-    }, 800);
+    }, 300);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
@@ -999,6 +999,7 @@ function EducationEditor({ data, setField }: { data: ResumeData; setField: <K ex
 
 function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const items = data.projects || [];
+  const improve = useAiImproveBullet();
   function update(idx: number, patch: Partial<ProjectItem>) {
     setField("projects", items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
@@ -1032,9 +1033,37 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
                       value={b}
                       onChange={(e) => update(idx, { bullets: (it.bullets || []).map((x, i) => (i === bi ? e.target.value : x)) })}
                     />
-                    <Button variant="ghost" size="icon" onClick={() => update(idx, { bullets: (it.bullets || []).filter((_, i) => i !== bi) })}>
-                      <Trash2 className="size-4" />
-                    </Button>
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Improve with AI"
+                        onClick={async () => {
+                          if (!b.trim()) return;
+                          try {
+                            const out = await improve.mutateAsync({
+                              data: { text: b, context: `${it.name} project` },
+                            });
+                            update(idx, {
+                              bullets: (it.bullets || []).map((x, i) => (i === bi ? out.text : x)),
+                            });
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "AI failed");
+                          }
+                        }}
+                      >
+                        <Sparkles className="size-4 text-primary" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          update(idx, { bullets: (it.bullets || []).filter((_, i) => i !== bi) })
+                        }
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 <Button variant="ghost" className="gap-1.5" onClick={() => update(idx, { bullets: [...(it.bullets || []), ""] })}>
@@ -1046,6 +1075,7 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
               <Label>Technologies (comma separated)</Label>
               <Input
                 className="mt-1"
+                placeholder="e.g. Python, FastAPI, OpenAI"
                 value={(it.technologies || []).join(", ")}
                 onChange={(e) => update(idx, { technologies: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
               />
