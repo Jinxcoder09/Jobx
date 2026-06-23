@@ -1212,7 +1212,34 @@ function SkillsEditor({ data, setField }: { data: ResumeData; setField: <K exten
                 <Trash2 className="size-4 text-destructive" />
               </Button>
             </div>
-            <FormField label="Category" value={it.category} onChange={(v) => update(idx, { category: v })} />
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <FormField label="Category" value={it.category} onChange={(v) => update(idx, { category: v })} />
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="gap-1.5 mb-0.5"
+                disabled={ai.isPending || !it.category}
+                onClick={async () => {
+                  try {
+                    const out = await ai.mutateAsync({
+                      data: {
+                        role: it.category || "",
+                        existing: items.flatMap((g) => g.items || []),
+                      },
+                    });
+                    const newItems = Array.from(new Set([...(it.items || []), ...out.skills]));
+                    update(idx, { items: newItems });
+                    toast.success(`${out.skills.length} skills suggested for "${it.category}"`);
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "AI failed");
+                  }
+                }}
+              >
+                <Sparkles className="size-4" /> Suggest
+              </Button>
+            </div>
             <div className="mt-2">
               <Label>Skills (comma separated)</Label>
               <CommaListInput

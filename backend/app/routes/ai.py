@@ -118,16 +118,16 @@ async def ai_suggest_skills(body: AiSkillsRequest) -> dict:
             {
                 "role": "system",
                 "content": (
-                    'Return STRICT JSON: {"skills":["skill",...]} with 12-18 '
-                    "ATS-relevant skills for the role. No commentary."
+                    'Return STRICT JSON: {"skills":["skill",...]} with 10-15 '
+                    "relevant skills for the given role or category. No commentary."
                 ),
             },
             {
                 "role": "user",
                 "content": (
-                    f"Role: {body.role}\n"
+                    f"Role / Category: {body.role}\n"
                     f"Already listed: {existing}\n"
-                    "Suggest skills the user has likely missed."
+                    "Suggest relevant skills the user has likely missed."
                 ),
             },
         ],
