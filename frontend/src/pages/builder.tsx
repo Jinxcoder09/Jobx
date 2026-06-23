@@ -885,10 +885,12 @@ function SummaryEditor({ data, setField }: { data: ResumeData; setField: <K exte
 
 function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const items = data.experience || [];
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
   const improve = useAiImproveBullet();
   const generate = useAiGenerateBullets();
   function update(idx: number, patch: Partial<ExperienceItem>) {
-    const next = items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
+    const next = itemsRef.current.map((it, i) => (i === idx ? { ...it, ...patch } : it));
     setField("experience", next);
   }
   function add() {
@@ -1081,10 +1083,12 @@ function EducationEditor({ data, setField }: { data: ResumeData; setField: <K ex
 
 function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const items = data.projects || [];
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
   const improve = useAiImproveBullet();
   const generate = useAiGenerateBullets();
   function update(idx: number, patch: Partial<ProjectItem>) {
-    setField("projects", items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+    setField("projects", itemsRef.current.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
   function addBullet(idx: number, project: ProjectItem) {
     const bullets = project.bullets || [];
