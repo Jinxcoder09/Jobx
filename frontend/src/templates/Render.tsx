@@ -547,18 +547,6 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
   const getSingleFlowables = () => {
     const list: any[] = [];
     
-    if (data.summary) {
-      list.push({
-        id: "summary",
-        render: () => (
-          <div className="resume-section summary-item" style={{ marginBottom: theme.sectionSpacing, breakInside: "avoid", pageBreakInside: "avoid" }}>
-            <SectionTitle theme={theme} templateId={templateId}>Summary</SectionTitle>
-            <div style={{ fontSize: "0.95em" }}>{data.summary}</div>
-          </div>
-        )
-      });
-    }
-    
     order.forEach((key) => {
       list.push(...getFlowablesForSection(key));
     });
