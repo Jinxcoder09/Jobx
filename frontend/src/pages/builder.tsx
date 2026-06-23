@@ -883,11 +883,81 @@ function SummaryEditor({ data, setField }: { data: ResumeData; setField: <K exte
   );
 }
 
+function ExperienceBulletRow({
+  bullet,
+  bulletIndex,
+  itemIndex,
+  itemId,
+  role,
+  company,
+  itemsRef,
+  update,
+}: {
+  bullet: string;
+  bulletIndex: number;
+  itemIndex: number;
+  itemId: string;
+  role: string;
+  company: string;
+  itemsRef: React.MutableRefObject<ExperienceItem[]>;
+  update: (idx: number, patch: Partial<ExperienceItem>) => void;
+}) {
+  const improve = useAiImproveBullet();
+  return (
+    <div className="flex gap-2">
+      <Textarea
+        rows={2}
+        data-experience-bullet={`${itemId}:${bulletIndex}`}
+        placeholder="Describe the result, metric, or contribution"
+        value={bullet}
+        onChange={(e) => {
+          const fresh = itemsRef.current[itemIndex]?.bullets || [];
+          update(itemIndex, { bullets: fresh.map((x, i) => (i === bulletIndex ? e.target.value : x)) });
+        }}
+      />
+      <div className="flex flex-col gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Improve with AI"
+          disabled={improve.isPending}
+          onClick={async () => {
+            try {
+              const currentText = (itemsRef.current[itemIndex]?.bullets || [])[bulletIndex] || bullet || "";
+              const out = await improve.mutateAsync({
+                data: { text: currentText, context: `${role} at ${company}` },
+              });
+              const freshBullets = itemsRef.current[itemIndex]?.bullets || [];
+              update(itemIndex, {
+                bullets: freshBullets.map((x, i) => (i === bulletIndex ? out.text : x)),
+              });
+              toast.success("Bullet improved");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "AI failed");
+            }
+          }}
+        >
+          {improve.isPending ? <Loader2 className="size-4 animate-spin text-primary" /> : <Sparkles className="size-4 text-primary" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            const fresh = itemsRef.current[itemIndex]?.bullets || [];
+            update(itemIndex, { bullets: fresh.filter((_, i) => i !== bulletIndex) });
+          }}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const items = data.experience || [];
   const itemsRef = useRef(items);
   itemsRef.current = items;
-  const improve = useAiImproveBullet();
   const generate = useAiGenerateBullets();
   function update(idx: number, patch: Partial<ExperienceItem>) {
     const next = itemsRef.current.map((it, i) => (i === idx ? { ...it, ...patch } : it));
@@ -945,51 +1015,17 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
               <Label>Bullet points</Label>
               <div className="space-y-2 mt-1">
                 {(it.bullets || []).map((b, bi) => (
-                  <div key={bi} className="flex gap-2">
-                    <Textarea
-                      rows={2}
-                      data-experience-bullet={`${it.id || idx}:${bi}`}
-                      placeholder="Describe the result, metric, or contribution"
-                      value={b}
-                      onChange={(e) =>
-                        update(idx, { bullets: (it.bullets || []).map((x, i) => (i === bi ? e.target.value : x)) })
-                      }
-                    />
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Improve with AI"
-                        disabled={improve.isPending}
-                        onClick={async () => {
-                          try {
-                            const currentText = (itemsRef.current[idx]?.bullets || [])[bi] || b || "";
-                            const out = await improve.mutateAsync({
-                              data: { text: currentText, context: `${it.role} at ${it.company}` },
-                            });
-                            const freshBullets = itemsRef.current[idx]?.bullets || [];
-                            update(idx, {
-                              bullets: freshBullets.map((x, i) => (i === bi ? out.text : x)),
-                            });
-                            toast.success("Bullet improved");
-                          } catch (e) {
-                            toast.error(e instanceof Error ? e.message : "AI failed");
-                          }
-                        }}
-                      >
-                        {improve.isPending ? <Loader2 className="size-4 animate-spin text-primary" /> : <Sparkles className="size-4 text-primary" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          update(idx, { bullets: (it.bullets || []).filter((_, i) => i !== bi) })
-                        }
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  <ExperienceBulletRow
+                    key={`${it.id || idx}-${bi}`}
+                    bullet={b}
+                    bulletIndex={bi}
+                    itemIndex={idx}
+                    itemId={it.id || String(idx)}
+                    role={it.role || ""}
+                    company={it.company || ""}
+                    itemsRef={itemsRef}
+                    update={update}
+                  />
                 ))}
                 <div className="flex gap-2">
                   <Button
@@ -1084,11 +1120,79 @@ function EducationEditor({ data, setField }: { data: ResumeData; setField: <K ex
   );
 }
 
+function ProjectBulletRow({
+  bullet,
+  bulletIndex,
+  itemIndex,
+  itemId,
+  name,
+  itemsRef,
+  update,
+}: {
+  bullet: string;
+  bulletIndex: number;
+  itemIndex: number;
+  itemId: string;
+  name: string;
+  itemsRef: React.MutableRefObject<ProjectItem[]>;
+  update: (idx: number, patch: Partial<ProjectItem>) => void;
+}) {
+  const improve = useAiImproveBullet();
+  return (
+    <div className="flex gap-2">
+      <Textarea
+        rows={2}
+        data-project-bullet={`${itemId}:${bulletIndex}`}
+        placeholder="Describe the result, metric, or contribution"
+        value={bullet}
+        onChange={(e) => {
+          const fresh = itemsRef.current[itemIndex]?.bullets || [];
+          update(itemIndex, { bullets: fresh.map((x, i) => (i === bulletIndex ? e.target.value : x)) });
+        }}
+      />
+      <div className="flex flex-col gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Improve with AI"
+          disabled={improve.isPending}
+          onClick={async () => {
+            try {
+              const currentText = (itemsRef.current[itemIndex]?.bullets || [])[bulletIndex] || bullet || itemsRef.current[itemIndex]?.description || "";
+              const out = await improve.mutateAsync({
+                data: { text: currentText, context: `${name} project` },
+              });
+              const freshBullets = itemsRef.current[itemIndex]?.bullets || [];
+              update(itemIndex, {
+                bullets: freshBullets.map((x, i) => (i === bulletIndex ? out.text : x)),
+              });
+              toast.success("Bullet improved");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "AI failed");
+            }
+          }}
+        >
+          {improve.isPending ? <Loader2 className="size-4 animate-spin text-primary" /> : <Sparkles className="size-4 text-primary" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            const fresh = itemsRef.current[itemIndex]?.bullets || [];
+            update(itemIndex, { bullets: fresh.filter((_, i) => i !== bulletIndex) });
+          }}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const items = data.projects || [];
   const itemsRef = useRef(items);
   itemsRef.current = items;
-  const improve = useAiImproveBullet();
   const generate = useAiGenerateBullets();
   function update(idx: number, patch: Partial<ProjectItem>) {
     setField("projects", itemsRef.current.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
@@ -1129,49 +1233,16 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
               <Label>Bullets</Label>
               <div className="space-y-2 mt-1">
                 {(it.bullets || []).map((b, bi) => (
-                  <div key={bi} className="flex gap-2">
-                    <Textarea
-                      rows={2}
-                      data-project-bullet={`${it.id || idx}:${bi}`}
-                      placeholder="Describe the result, metric, or contribution"
-                      value={b}
-                      onChange={(e) => update(idx, { bullets: (it.bullets || []).map((x, i) => (i === bi ? e.target.value : x)) })}
-                    />
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Improve with AI"
-                        disabled={improve.isPending}
-                        onClick={async () => {
-                          try {
-                            const currentText = (itemsRef.current[idx]?.bullets || [])[bi] || b || itemsRef.current[idx]?.description || "";
-                            const out = await improve.mutateAsync({
-                              data: { text: currentText, context: `${it.name} project` },
-                            });
-                            const freshBullets = itemsRef.current[idx]?.bullets || [];
-                            update(idx, {
-                              bullets: freshBullets.map((x, i) => (i === bi ? out.text : x)),
-                            });
-                            toast.success("Bullet improved");
-                          } catch (e) {
-                            toast.error(e instanceof Error ? e.message : "AI failed");
-                          }
-                        }}
-                      >
-                        {improve.isPending ? <Loader2 className="size-4 animate-spin text-primary" /> : <Sparkles className="size-4 text-primary" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          update(idx, { bullets: (it.bullets || []).filter((_, i) => i !== bi) })
-                        }
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  <ProjectBulletRow
+                    key={`${it.id || idx}-${bi}`}
+                    bullet={b}
+                    bulletIndex={bi}
+                    itemIndex={idx}
+                    itemId={it.id || String(idx)}
+                    name={it.name || ""}
+                    itemsRef={itemsRef}
+                    update={update}
+                  />
                 ))}
                 <div className="flex gap-2">
                   <Button variant="ghost" className="gap-1.5" onClick={() => addBullet(idx, it)}>
