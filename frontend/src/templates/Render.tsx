@@ -615,7 +615,10 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
     if (ids.length === 0) return [];
 
     const getH = (id: string) => heights[id] || 0;
-    const pageMaxH = 1008; // 1123px (A4) - 115.2px (Margins) = 1007.8px
+    // A4 at 96dpi = 1122.5px. Vertical padding = 2 × 0.6in × 96 = 115.2px.
+    // Theoretical max content = 1007px. We use 930 (~8% buffer) to account
+    // for font-metric differences between browser measurement and Playwright PDF render.
+    const pageMaxH = 930;
 
     if (!isTwo) {
       const pages: any[][] = [];
@@ -714,8 +717,9 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
           white-space: normal;
         }
         .resume-page {
-          break-inside: avoid;
-          page-break-inside: avoid;
+          /* Do NOT use break-inside: avoid here — it causes overflow to be
+             clipped instead of flowing to page 2. Sections handle their own
+             break avoidance via .resume-section below. */
         }
         .resume-section {
           break-inside: avoid;
@@ -767,7 +771,8 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
           color: theme.primaryColor || "#0b0b0c",
         }}
       >
-        <div data-flowable-id="header">
+        {/* Header must be measured at the same content width as the actual page (0.7in horizontal padding) */}
+        <div data-flowable-id="header" style={{ padding: "0 0.7in" }}>
           <Header data={data} theme={theme} templateId={templateId} />
         </div>
         
@@ -864,7 +869,6 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
                   color: theme.primaryColor || "#0b0b0c",
                   pageBreakAfter: "always",
                   breakAfter: "page",
-                  breakInside: "avoid",
                 }}
               >
                 {pageIdx === 0 && (
