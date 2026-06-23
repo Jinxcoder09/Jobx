@@ -94,14 +94,15 @@ async def ai_improve_bullet(body: AiImproveRequest) -> dict:
             {
                 "role": "system",
                 "content": (
-                    "Rewrite resume bullet points: lead with a strong action verb, "
-                    "quantify impact when reasonable, keep under 22 words, no first "
-                    "person, no buzzwords. Return only the rewritten bullet, no preface."
+                    "You are a resume bullet point generator. Given a rough description "
+                    "or query, generate a polished resume bullet point. Lead with a strong "
+                    "action verb, quantify impact when reasonable, keep under 22 words, "
+                    "no first person, no buzzwords. Return only the bullet point, no preface."
                 ),
             },
             {
                 "role": "user",
-                "content": f"Context: {body.context or 'general'}\nOriginal: {body.text}",
+                "content": f"Context: {body.context or 'general'}\nDescription: {body.text}",
             },
         ],
         temperature=0.5,
