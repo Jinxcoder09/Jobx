@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     PORT: int = 3001
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:4173,https://jobx-delta.vercel.app"
 
+    # Render (optional — used for self-ping keep-alive)
+    RENDER_EXTERNAL_URL: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
