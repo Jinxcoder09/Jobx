@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -205,13 +205,14 @@ export default function Builder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
 
-  function patchData(p: Partial<ResumeData>) {
+  const patchData = useCallback((p: Partial<ResumeData>) => {
     dirtyRef.current = true;
     setDraft((current) => {
       if (!current) return current;
       return { ...current, data: { ...(current.data as ResumeData), ...p } };
     });
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // setDraft and dirtyRef are both stable — no deps needed
   function patchTheme(p: Partial<Theme>) {
     dirtyRef.current = true;
     setDraft((current) => {
@@ -903,6 +904,10 @@ function ExperienceBulletRow({
   patchData: (p: Partial<ResumeData>) => void;
 }) {
   const improve = useAiImproveBullet();
+  // Always keep a fresh ref to patchData so the async handler never closes over a stale version
+  const patchDataRef = useRef(patchData);
+  patchDataRef.current = patchData;
+
   return (
     <div className="flex gap-2">
       <Textarea
@@ -912,7 +917,7 @@ function ExperienceBulletRow({
         value={bullet}
         onChange={(e) => {
           const val = e.target.value;
-          patchData({
+          patchDataRef.current({
             experience: itemsRef.current.map((it, i) =>
               i === itemIndex
                 ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? val : x)) }
@@ -933,7 +938,8 @@ function ExperienceBulletRow({
               const out = await improve.mutateAsync({
                 data: { text: currentText, context: `${role} at ${company}` },
               });
-              patchData({
+              // Use ref to guarantee we have the latest patchData after the await
+              patchDataRef.current({
                 experience: itemsRef.current.map((it, i) =>
                   i === itemIndex
                     ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? out.text : x)) }
@@ -952,7 +958,7 @@ function ExperienceBulletRow({
           variant="ghost"
           size="icon"
           onClick={() => {
-            patchData({
+            patchDataRef.current({
               experience: itemsRef.current.map((it, i) =>
                 i === itemIndex
                   ? { ...it, bullets: (it.bullets || []).filter((_, j) => j !== bulletIndex) }
@@ -1152,6 +1158,10 @@ function ProjectBulletRow({
   patchData: (p: Partial<ResumeData>) => void;
 }) {
   const improve = useAiImproveBullet();
+  // Always keep a fresh ref to patchData so the async handler never closes over a stale version
+  const patchDataRef = useRef(patchData);
+  patchDataRef.current = patchData;
+
   return (
     <div className="flex gap-2">
       <Textarea
@@ -1161,7 +1171,7 @@ function ProjectBulletRow({
         value={bullet}
         onChange={(e) => {
           const val = e.target.value;
-          patchData({
+          patchDataRef.current({
             projects: itemsRef.current.map((it, i) =>
               i === itemIndex
                 ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? val : x)) }
@@ -1182,7 +1192,8 @@ function ProjectBulletRow({
               const out = await improve.mutateAsync({
                 data: { text: currentText, context: `${name} project` },
               });
-              patchData({
+              // Use ref to guarantee we have the latest patchData after the await
+              patchDataRef.current({
                 projects: itemsRef.current.map((it, i) =>
                   i === itemIndex
                     ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? out.text : x)) }
@@ -1201,7 +1212,7 @@ function ProjectBulletRow({
           variant="ghost"
           size="icon"
           onClick={() => {
-            patchData({
+            patchDataRef.current({
               projects: itemsRef.current.map((it, i) =>
                 i === itemIndex
                   ? { ...it, bullets: (it.bullets || []).filter((_, j) => j !== bulletIndex) }
