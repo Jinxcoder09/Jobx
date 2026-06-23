@@ -724,7 +724,7 @@ function Editor({
         )}
 
         {active === "experience" && (
-          <ExperienceEditor data={data} setField={setField} />
+          <ExperienceEditor data={data} setField={setField} patchData={patchData} />
         )}
 
         {active === "education" && (
@@ -732,7 +732,7 @@ function Editor({
         )}
 
         {active === "projects" && (
-          <ProjectsEditor data={data} setField={setField} />
+          <ProjectsEditor data={data} setField={setField} patchData={patchData} />
         )}
 
         {active === "skills" && (
@@ -891,7 +891,7 @@ function ExperienceBulletRow({
   role,
   company,
   itemsRef,
-  update,
+  patchData,
 }: {
   bullet: string;
   bulletIndex: number;
@@ -900,7 +900,7 @@ function ExperienceBulletRow({
   role: string;
   company: string;
   itemsRef: React.MutableRefObject<ExperienceItem[]>;
-  update: (idx: number, patch: Partial<ExperienceItem>) => void;
+  patchData: (p: Partial<ResumeData>) => void;
 }) {
   const improve = useAiImproveBullet();
   return (
@@ -911,8 +911,14 @@ function ExperienceBulletRow({
         placeholder="Describe the result, metric, or contribution"
         value={bullet}
         onChange={(e) => {
-          const fresh = itemsRef.current[itemIndex]?.bullets || [];
-          update(itemIndex, { bullets: fresh.map((x, i) => (i === bulletIndex ? e.target.value : x)) });
+          const val = e.target.value;
+          patchData({
+            experience: itemsRef.current.map((it, i) =>
+              i === itemIndex
+                ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? val : x)) }
+                : it
+            ),
+          });
         }}
       />
       <div className="flex flex-col gap-1">
@@ -927,9 +933,12 @@ function ExperienceBulletRow({
               const out = await improve.mutateAsync({
                 data: { text: currentText, context: `${role} at ${company}` },
               });
-              const freshBullets = itemsRef.current[itemIndex]?.bullets || [];
-              update(itemIndex, {
-                bullets: freshBullets.map((x, i) => (i === bulletIndex ? out.text : x)),
+              patchData({
+                experience: itemsRef.current.map((it, i) =>
+                  i === itemIndex
+                    ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? out.text : x)) }
+                    : it
+                ),
               });
               toast.success("Bullet improved");
             } catch (e) {
@@ -943,8 +952,13 @@ function ExperienceBulletRow({
           variant="ghost"
           size="icon"
           onClick={() => {
-            const fresh = itemsRef.current[itemIndex]?.bullets || [];
-            update(itemIndex, { bullets: fresh.filter((_, i) => i !== bulletIndex) });
+            patchData({
+              experience: itemsRef.current.map((it, i) =>
+                i === itemIndex
+                  ? { ...it, bullets: (it.bullets || []).filter((_, j) => j !== bulletIndex) }
+                  : it
+              ),
+            });
           }}
         >
           <Trash2 className="size-4" />
@@ -954,7 +968,7 @@ function ExperienceBulletRow({
   );
 }
 
-function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
+function ExperienceEditor({ data, setField, patchData }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void; patchData: (p: Partial<ResumeData>) => void }) {
   const items = data.experience || [];
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -1024,7 +1038,7 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
                     role={it.role || ""}
                     company={it.company || ""}
                     itemsRef={itemsRef}
-                    update={update}
+                    patchData={patchData}
                   />
                 ))}
                 <div className="flex gap-2">
@@ -1127,7 +1141,7 @@ function ProjectBulletRow({
   itemId,
   name,
   itemsRef,
-  update,
+  patchData,
 }: {
   bullet: string;
   bulletIndex: number;
@@ -1135,7 +1149,7 @@ function ProjectBulletRow({
   itemId: string;
   name: string;
   itemsRef: React.MutableRefObject<ProjectItem[]>;
-  update: (idx: number, patch: Partial<ProjectItem>) => void;
+  patchData: (p: Partial<ResumeData>) => void;
 }) {
   const improve = useAiImproveBullet();
   return (
@@ -1146,8 +1160,14 @@ function ProjectBulletRow({
         placeholder="Describe the result, metric, or contribution"
         value={bullet}
         onChange={(e) => {
-          const fresh = itemsRef.current[itemIndex]?.bullets || [];
-          update(itemIndex, { bullets: fresh.map((x, i) => (i === bulletIndex ? e.target.value : x)) });
+          const val = e.target.value;
+          patchData({
+            projects: itemsRef.current.map((it, i) =>
+              i === itemIndex
+                ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? val : x)) }
+                : it
+            ),
+          });
         }}
       />
       <div className="flex flex-col gap-1">
@@ -1162,9 +1182,12 @@ function ProjectBulletRow({
               const out = await improve.mutateAsync({
                 data: { text: currentText, context: `${name} project` },
               });
-              const freshBullets = itemsRef.current[itemIndex]?.bullets || [];
-              update(itemIndex, {
-                bullets: freshBullets.map((x, i) => (i === bulletIndex ? out.text : x)),
+              patchData({
+                projects: itemsRef.current.map((it, i) =>
+                  i === itemIndex
+                    ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? out.text : x)) }
+                    : it
+                ),
               });
               toast.success("Bullet improved");
             } catch (e) {
@@ -1178,8 +1201,13 @@ function ProjectBulletRow({
           variant="ghost"
           size="icon"
           onClick={() => {
-            const fresh = itemsRef.current[itemIndex]?.bullets || [];
-            update(itemIndex, { bullets: fresh.filter((_, i) => i !== bulletIndex) });
+            patchData({
+              projects: itemsRef.current.map((it, i) =>
+                i === itemIndex
+                  ? { ...it, bullets: (it.bullets || []).filter((_, j) => j !== bulletIndex) }
+                  : it
+              ),
+            });
           }}
         >
           <Trash2 className="size-4" />
@@ -1189,7 +1217,7 @@ function ProjectBulletRow({
   );
 }
 
-function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
+function ProjectsEditor({ data, setField, patchData }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void; patchData: (p: Partial<ResumeData>) => void }) {
   const items = data.projects || [];
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -1241,7 +1269,7 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
                     itemId={it.id || String(idx)}
                     name={it.name || ""}
                     itemsRef={itemsRef}
-                    update={update}
+                    patchData={patchData}
                   />
                 ))}
                 <div className="flex gap-2">
