@@ -203,6 +203,7 @@ class AiParseRequest(BaseModel):
 
 class AiOptimizeRequest(BaseModel):
     resume: ResumeData
+    layout: Optional[str] = "single"
 
 
 # ─── AI response bodies ───────────────────────────────────────────────────────

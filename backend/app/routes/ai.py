@@ -392,17 +392,41 @@ async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
     resume_dict = body.resume.model_dump()
     resume_json = json.dumps(resume_dict)
 
+    layout = body.layout or "single"
+
+    if layout == "two-column":
+        bullet_instruction = (
+            "4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be extremely concise, "
+            "between 6 and 8 words (under 50 characters), ensuring it completely fills but fits on a single line in a narrow two-column layout. Avoid wrapping."
+        )
+        desc_instruction = (
+            "5. Strict 2-line limit for descriptions: All descriptions (including the resume summary, project descriptions, "
+            "education descriptions, certifications, achievements, and custom item descriptions) must be kept between 12 and 16 words "
+            "(under 100 characters) so they completely fill but take up at most 2 lines in a narrow two-column layout."
+        )
+    else:  # single-column
+        bullet_instruction = (
+            "4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be concise, "
+            "between 10 and 13 words (under 105 characters), ensuring it completely fills but fits on a single line in a wide single-column layout. "
+            "For example: 'developing, and deploying cutting-edge applications. Spearheaded efficient development and collaboration'. Avoid wrapping."
+        )
+        desc_instruction = (
+            "5. Strict 2-line limit for descriptions: All descriptions (including the resume summary, project descriptions, "
+            "education descriptions, certifications, achievements, and custom item descriptions) must be kept between 20 and 26 words "
+            "(under 210 characters) so they completely fill but take up at most 2 lines in a wide single-column layout."
+        )
+
     system_prompt = (
         "You are an expert resume writer and ATS optimization engine. Your goal is to maximize the ATS score of the resume. "
         "You must return a STRICT JSON object representing the optimized resume data. "
         "The returned JSON must have the EXACT same structure and keys as the input JSON, preserving all IDs (e.g. 'id') and personal details. "
         "\n"
         "Apply these specific optimizations to the content:\n"
-        "1. Remove repeating overused verbs (like 'led', 'managed', 'worked', 'assisted', 'responsible for') by replacing them with diverse, strong, active industry verbs (e.g. 'spearheaded', 'orchestrated', 'engineered', 'championed', 'designed', 'optimized', 'cultivated').\n"
+        "1. Remove repeating overused verbs and words: You must ensure that action verbs (like 'led', 'managed', 'worked', 'developed', 'engineered', 'designed') and key terms are not repeated frequently across different bullet points or sections. Every detail and bullet point should be unique. Use a highly diverse vocabulary of strong, active verbs (e.g., 'spearheaded', 'orchestrated', 'pioneered', 'championed', 'formulated', 'streamlined') so each accomplishment is distinct and fresh.\n"
         "2. Quantify achievements: Review every bullet point, project description, and achievement. If a bullet or description lacks numbers or metrics, inject realistic, professional metrics (e.g., percentages, dollar amounts, time saved, team sizes, scale numbers like 'boosted performance by 24%', 'saved $12k annually', 'collaborated with a 6-person team'). Make them sound natural and contextually appropriate.\n"
         "3. Standardize dates: Convert all dates (e.g. in experience, education, certifications, achievements, custom sections) to a clean 'Month Year' format (e.g., 'Jun 2023', 'Dec 2021', 'Present'). If a date is empty or says 'Present' / 'Current', leave it as is.\n"
-        "4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be extremely concise, under 15 words and under 90 characters, ensuring it fits on a single line on a standard resume layout. Avoid wrapping onto multiple lines.\n"
-        "5. Strict 2-line limit for descriptions: All descriptions (including the resume summary, project descriptions, education descriptions, certifications, achievements, and custom item descriptions) must be kept extremely short and concise, under 25 words total, ensuring they take up at most 2 lines on the resume layout.\n"
+        f"{bullet_instruction}\n"
+        f"{desc_instruction}\n"
         "6. Keep personal info (fullName, email, phone, location, website, linkedin, github, photoUrl), template preferences, and layout structure completely unchanged.\n"
         "7. Preserve the exact value of all 'id' fields so React rendering keys and order are maintained.\n"
         "\n"

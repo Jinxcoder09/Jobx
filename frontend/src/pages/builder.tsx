@@ -236,7 +236,12 @@ export default function Builder() {
   const handleOptimizeResume = useCallback(async () => {
     if (!draft) return;
     try {
-      const result = await optimizeResume.mutateAsync({ data: { resume: draft.data } });
+      const result = await optimizeResume.mutateAsync({
+        data: {
+          resume: draft.data,
+          layout: draft.theme?.layout || "single",
+        },
+      });
       patchData(result.data);
       setAutoAnalyze(true);
       setScoreOpen(true);

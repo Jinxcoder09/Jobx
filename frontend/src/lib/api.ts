@@ -314,7 +314,7 @@ export function useAiParseResume(): UseMutationResult<
 export function useAiOptimizeResume(): UseMutationResult<
   { data: ResumeData },
   Error,
-  { data: { resume: ResumeData } }
+  { data: { resume: ResumeData; layout?: string } }
 > {
   return useMutation({
     mutationFn: ({ data }) =>
