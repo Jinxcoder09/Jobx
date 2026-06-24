@@ -41,10 +41,10 @@ async def keep_alive():
         logger.info("RENDER_EXTERNAL_URL not set — keep-alive disabled")
         return
     health_url = f"{url.rstrip('/')}/api/healthz"
-    logger.info("Keep-alive started — pinging %s every 25 min", health_url)
+    logger.info("Keep-alive started — pinging %s every 14 min", health_url)
     async with httpx.AsyncClient() as client:
         while True:
-            await asyncio.sleep(25 * 60)
+            await asyncio.sleep(14 * 60)
             try:
                 r = await client.get(health_url, timeout=10)
                 logger.info("Keep-alive ping → %s", r.status_code)
