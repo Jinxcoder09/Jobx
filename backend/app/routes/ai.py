@@ -67,8 +67,9 @@ async def ai_generate_summary(body: AiSummaryRequest) -> dict:
             {
                 "role": "system",
                 "content": (
-                    "You write concise, ATS-optimized resume summaries "
-                    "(2-4 sentences, third person omitted, no clichés, strong verbs)."
+                    "You write extremely concise, ATS-optimized resume summaries "
+                    "(at most 2 short sentences, under 30 words total, third person omitted, no clichés, strong verbs) "
+                    "so that it takes up at most 2 lines on the resume."
                 ),
             },
             {
@@ -99,45 +100,46 @@ async def ai_improve_bullet(body: AiImproveRequest) -> dict:
             system_content = (
                 "You are a resume writer. Write a concise, professional description or notes for an education entry "
                 "based on the context provided (e.g. school, degree, field). Focus on coursework, honors, or academic activities. "
-                "Keep it under 2 sentences. Return only the description, no preface."
+                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the description, no preface."
             )
         else:
             system_content = (
                 "You are a resume writer. Refine and polish the given education notes/description. "
                 "Make it sound professional, focusing on academic achievement, coursework, honors, or activities. "
-                "Keep it concise (1-2 sentences). Return only the polished description, no preface."
+                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the polished description, no preface."
             )
     elif "project" in context_lower:
         if not body.text.strip():
             system_content = (
                 "You are a resume writer. Write a concise, professional description for a project entry "
                 "based on the context provided (e.g. project name, technologies). Highlight technical challenges, solutions, or purpose. "
-                "Keep it under 2 sentences. Return only the description, no preface."
+                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the description, no preface."
             )
         else:
             system_content = (
                 "You are a resume writer. Refine and polish the given project description. "
                 "Ensure it highlights technical challenges, solutions, and impact. Use professional, active language. "
-                "Keep it concise (1-2 sentences). Return only the polished description, no preface."
+                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the polished description, no preface."
             )
     elif any(x in context_lower for x in ["certification", "achievement", "custom"]):
         if not body.text.strip():
             system_content = (
                 "You are a resume writer. Write a concise, professional description for a resume entry "
                 "based on the context provided (e.g. title, subtitle). Focus on scope or impact. "
-                "Keep it under 2 sentences. Return only the description, no preface."
+                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the description, no preface."
             )
         else:
             system_content = (
                 "You are a resume writer. Refine and polish the given description for a certification, "
                 "achievement, or custom section item. Make it professional and concise. "
-                "Keep it to 1-2 sentences. Return only the polished description, no preface."
+                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the polished description, no preface."
             )
     else:
         system_content = (
             "You are a resume bullet point generator. Given a rough description "
             "or query, generate a polished resume bullet point. Lead with a strong "
-            "action verb, quantify impact when reasonable, keep under 22 words, "
+            "action verb, quantify impact when reasonable, keep under 15 words and "
+            "under 90 characters so it fits on a single line on the resume layout, "
             "no first person, no buzzwords. Return only the bullet point, no preface."
         )
 
@@ -181,7 +183,8 @@ async def ai_generate_bullets(body: AiBulletsRequest) -> dict:
                 "content": (
                     f"Generate {body.count or 4} resume bullet points. "
                     "Each bullet: lead with a strong action verb, quantify impact, "
-                    "keep under 22 words, no first person, no buzzwords. "
+                    "keep under 15 words and under 90 characters so it fits on a single line on the resume layout, "
+                    "no first person, no buzzwords. "
                     'Return STRICT JSON: {{"bullets":["bullet1","bullet2",...]}}'
                 ),
             },
@@ -292,9 +295,14 @@ async def ai_ats_score(body: AiScoreRequest) -> dict:
                 {
                     "role": "system",
                     "content": (
-                        'You are an ATS reviewer. Reply with one JSON object only, no markdown: '
+                        "You are a strict, hyper-critical ATS (Applicant Tracking System) reviewer and hiring manager. "
+                        "You must evaluate the resume objectively and grade it strictly. "
+                        "A typical resume has many areas of improvement; do not be overly generous. "
+                        "Rate the resume on a scale of 0-100. "
+                        "Most average resumes should score between 40 and 70. Only truly exceptional, highly-optimized resumes with strong keyword alignment and extensive quantified metrics should score above 80. "
+                        "Reply with one JSON object only, no markdown: "
                         '{"score": <0-100 integer>, "strengths": ["..."], "improvements": ["..."]}. '
-                        "3-6 items per array. Be specific and actionable."
+                        "Provide 3-6 specific, actionable, and critical items per array. Focus on missing keywords, weak verbs, lack of numbers/metrics, and formatting issues."
                     ),
                 },
                 {
@@ -393,8 +401,10 @@ async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
         "1. Remove repeating overused verbs (like 'led', 'managed', 'worked', 'assisted', 'responsible for') by replacing them with diverse, strong, active industry verbs (e.g. 'spearheaded', 'orchestrated', 'engineered', 'championed', 'designed', 'optimized', 'cultivated').\n"
         "2. Quantify achievements: Review every bullet point, project description, and achievement. If a bullet or description lacks numbers or metrics, inject realistic, professional metrics (e.g., percentages, dollar amounts, time saved, team sizes, scale numbers like 'boosted performance by 24%', 'saved $12k annually', 'collaborated with a 6-person team'). Make them sound natural and contextually appropriate.\n"
         "3. Standardize dates: Convert all dates (e.g. in experience, education, certifications, achievements, custom sections) to a clean 'Month Year' format (e.g., 'Jun 2023', 'Dec 2021', 'Present'). If a date is empty or says 'Present' / 'Current', leave it as is.\n"
-        "4. Keep personal info (fullName, email, phone, location, website, linkedin, github, photoUrl), template preferences, and layout structure completely unchanged.\n"
-        "5. Preserve the exact value of all 'id' fields so React rendering keys and order are maintained.\n"
+        "4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be extremely concise, under 15 words and under 90 characters, ensuring it fits on a single line on a standard resume layout. Avoid wrapping onto multiple lines.\n"
+        "5. Strict 2-line limit for descriptions: All descriptions (including the resume summary, project descriptions, education descriptions, certifications, achievements, and custom item descriptions) must be kept extremely short and concise, under 25 words total, ensuring they take up at most 2 lines on the resume layout.\n"
+        "6. Keep personal info (fullName, email, phone, location, website, linkedin, github, photoUrl), template preferences, and layout structure completely unchanged.\n"
+        "7. Preserve the exact value of all 'id' fields so React rendering keys and order are maintained.\n"
         "\n"
         "Return ONLY the raw JSON object matching the input structure, with no markdown formatting, no code block backticks, and no conversational text."
     )
@@ -663,16 +673,16 @@ def _heuristic_score(
     r = resume or {}
     strengths: list[str] = []
     improvements: list[str] = []
-    score = 40
+    score = 25
 
     p = r.get("personal") or {}
     if p.get("fullName"):
-        score += 4
+        score += 3
         strengths.append("Clear contact header with full name.")
     else:
         improvements.append("Add your full name to the personal section.")
     if p.get("email"):
-        score += 3
+        score += 2
     else:
         improvements.append("Add a professional email so recruiters can reach you.")
     if p.get("phone"):
@@ -687,23 +697,23 @@ def _heuristic_score(
 
     summary = r.get("summary") or ""
     if isinstance(summary, str) and len(summary) > 80:
-        score += 6
+        score += 4
         strengths.append("Summary is present and meaningfully developed.")
     else:
         improvements.append("Add a 2–4 sentence professional summary tailored to the role.")
 
     exp = r.get("experience") or []
     if len(exp) >= 2:
-        score += 8
+        score += 6
         strengths.append(f"{len(exp)} work experience entries listed.")
     elif len(exp) == 1:
-        score += 4
+        score += 3
     else:
         improvements.append("Add at least one experience entry with measurable bullet points.")
 
     total_bullets = sum(len(e.get("bullets") or []) for e in exp)
     if total_bullets >= 5:
-        score += 8
+        score += 6
         strengths.append("Bullet points present across experience.")
     else:
         improvements.append("Use 3–5 quantified bullet points per role (numbers, %, $).")
@@ -711,26 +721,43 @@ def _heuristic_score(
     numeric_bullets = [
         b for e in exp for b in (e.get("bullets") or []) if re.search(r"\d", b)
     ]
-    if len(numeric_bullets) >= 3:
-        score += 6
-        strengths.append("Bullets include quantified impact (numbers/percentages).")
+    if len(numeric_bullets) >= 4:
+        score += 8
+        strengths.append("Bullets include strong quantified impact metrics.")
+    elif len(numeric_bullets) >= 2:
+        score += 4
+        strengths.append("Some bullet points contain numeric metrics.")
     else:
-        improvements.append("Quantify more achievements with concrete metrics.")
+        improvements.append("Quantify achievements with concrete metrics (%, $, numbers) to improve ATS score.")
+
+    # Check for repeating overused verbs
+    all_bullets_text = " ".join([b.lower() for e in exp for b in (e.get("bullets") or [])])
+    words = [w for w in re.findall(r"[a-z]+", all_bullets_text) if len(w) > 3]
+    word_counts = {}
+    for w in words:
+        word_counts[w] = word_counts.get(w, 0) + 1
+    overused = [w for w, count in word_counts.items() if count >= 3 and w in ["led", "managed", "worked", "assisted", "responsible"]]
+    if overused:
+        score -= 5 * len(overused)
+        improvements.append(f"Avoid repeating overused verbs like {', '.join(overused)}. Use more dynamic active verbs.")
+    elif exp:
+        score += 4
+        strengths.append("Good variety of action verbs used across experience bullet points.")
 
     skills_count = sum(len(g.get("items") or []) for g in (r.get("skills") or []))
     if skills_count >= 8:
-        score += 6
+        score += 5
         strengths.append(f"Strong skills section with {skills_count} items.")
     else:
         improvements.append("List at least 8 ATS-friendly hard skills.")
 
     if r.get("education"):
-        score += 4
+        score += 3
     else:
         improvements.append("Include education or relevant credentials.")
 
     if r.get("projects"):
-        score += 3
+        score += 2
     if r.get("achievements"):
         score += 2
     if r.get("certifications"):
@@ -744,7 +771,7 @@ def _heuristic_score(
         resume_text = json.dumps(r).lower()
         matched = [w for w in jd_words if w in resume_text]
         ratio = len(matched) / max(len(jd_words), 1)
-        score += round(ratio * 12)
+        score += round(ratio * 15)
         pct = round(ratio * 100)
         if ratio >= 0.5:
             strengths.append(f"Strong keyword overlap with the job description ({pct}%).")
