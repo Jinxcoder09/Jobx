@@ -67,9 +67,9 @@ async def ai_generate_summary(body: AiSummaryRequest) -> dict:
             {
                 "role": "system",
                 "content": (
-                    "You write extremely concise, ATS-optimized resume summaries "
-                    "(at most 2 short sentences, under 30 words total, third person omitted, no clichés, strong verbs) "
-                    "so that it takes up at most 2 lines on the resume."
+                    "You write professional, ATS-optimized resume summaries "
+                    "(3-4 sentences, approx 45-60 words total, third person omitted, no clichés, strong verbs) "
+                    "so that it fills exactly 3 to 4 lines on the resume."
                 ),
             },
             {
@@ -100,46 +100,46 @@ async def ai_improve_bullet(body: AiImproveRequest) -> dict:
             system_content = (
                 "You are a resume writer. Write a concise, professional description or notes for an education entry "
                 "based on the context provided (e.g. school, degree, field). Focus on coursework, honors, or academic activities. "
-                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the description, no preface."
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the description, no preface."
             )
         else:
             system_content = (
                 "You are a resume writer. Refine and polish the given education notes/description. "
                 "Make it sound professional, focusing on academic achievement, coursework, honors, or activities. "
-                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the polished description, no preface."
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the polished description, no preface."
             )
     elif "project" in context_lower:
         if not body.text.strip():
             system_content = (
                 "You are a resume writer. Write a concise, professional description for a project entry "
                 "based on the context provided (e.g. project name, technologies). Highlight technical challenges, solutions, or purpose. "
-                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the description, no preface."
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the description, no preface."
             )
         else:
             system_content = (
                 "You are a resume writer. Refine and polish the given project description. "
                 "Ensure it highlights technical challenges, solutions, and impact. Use professional, active language. "
-                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the polished description, no preface."
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the polished description, no preface."
             )
     elif any(x in context_lower for x in ["certification", "achievement", "custom"]):
         if not body.text.strip():
             system_content = (
                 "You are a resume writer. Write a concise, professional description for a resume entry "
                 "based on the context provided (e.g. title, subtitle). Focus on scope or impact. "
-                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the description, no preface."
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the description, no preface."
             )
         else:
             system_content = (
                 "You are a resume writer. Refine and polish the given description for a certification, "
                 "achievement, or custom section item. Make it professional and concise. "
-                "Keep it under 2 lines of text on the resume (at most 2 sentences, under 25 words total). Return only the polished description, no preface."
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the polished description, no preface."
             )
     else:
         system_content = (
             "You are a resume bullet point generator. Given a rough description "
             "or query, generate a polished resume bullet point. Lead with a strong "
-            "action verb, quantify impact when reasonable, keep under 15 words and "
-            "under 90 characters so it fits on a single line on the resume layout, "
+            "action verb, quantify impact when reasonable, keep between 15 and 19 words "
+            "(approx. 110-135 characters) so that the line is completely filled but fits on a single line on the resume layout, "
             "no first person, no buzzwords. Return only the bullet point, no preface."
         )
 
@@ -183,7 +183,7 @@ async def ai_generate_bullets(body: AiBulletsRequest) -> dict:
                 "content": (
                     f"Generate {body.count or 4} resume bullet points. "
                     "Each bullet: lead with a strong action verb, quantify impact, "
-                    "keep under 15 words and under 90 characters so it fits on a single line on the resume layout, "
+                    "keep between 15 and 19 words (approx. 110-135 characters) so that the line is completely filled but fits on a single line on the resume layout, "
                     "no first person, no buzzwords. "
                     'Return STRICT JSON: {{"bullets":["bullet1","bullet2",...]}}'
                 ),
@@ -395,25 +395,35 @@ async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
     layout = body.layout or "single"
 
     if layout == "two-column":
-        bullet_instruction = (
-            "4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be extremely concise, "
-            "between 6 and 8 words (under 50 characters), ensuring it completely fills but fits on a single line in a narrow two-column layout. Avoid wrapping."
-        )
-        desc_instruction = (
-            "5. Strict 2-line limit for descriptions: All descriptions (including the resume summary, project descriptions, "
-            "education descriptions, certifications, achievements, and custom item descriptions) must be kept between 12 and 16 words "
-            "(under 100 characters) so they completely fill but take up at most 2 lines in a narrow two-column layout."
-        )
-    else:  # single-column
+        # Narrow columns (approx 50-60 characters per line)
         bullet_instruction = (
             "4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be concise, "
-            "between 10 and 13 words (under 105 characters), ensuring it completely fills but fits on a single line in a wide single-column layout. "
-            "For example: 'developing, and deploying cutting-edge applications. Spearheaded efficient development and collaboration'. Avoid wrapping."
+            "between 8 and 10 words (approx. 55-70 characters), ensuring it completely fills the single line in a narrow two-column layout without wrapping onto a second line."
         )
         desc_instruction = (
-            "5. Strict 2-line limit for descriptions: All descriptions (including the resume summary, project descriptions, "
-            "education descriptions, certifications, achievements, and custom item descriptions) must be kept between 20 and 26 words "
-            "(under 210 characters) so they completely fill but take up at most 2 lines in a wide single-column layout."
+            "5. Strict 2 to 3 lines for descriptions: All descriptions (including project descriptions, "
+            "education descriptions, certifications, achievements, and custom item descriptions) must be kept between 16 and 22 words "
+            "(approx. 110-150 characters) so they completely fill and take up exactly 2 to 3 lines in a narrow two-column layout."
+        )
+        summary_instruction = (
+            "6. Professional 3 to 4 lines summary: The resume summary must be kept between 24 and 32 words (approx. 160-220 characters) "
+            "so it completely fills and takes up exactly 3 to 4 lines in a narrow two-column layout."
+        )
+    else:  # single-column
+        # Wide columns (approx 90-110 characters per line)
+        bullet_instruction = (
+            "4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be concise, "
+            "between 15 and 18 words (approx. 110-135 characters), ensuring it completely fills the single line in a wide single-column layout without wrapping onto a second line. "
+            "For example: 'spearheaded development and deployment of cutting-edge cloud applications, boosting team collaboration and efficiency by 24%'."
+        )
+        desc_instruction = (
+            "5. Strict 2 to 3 lines for descriptions: All descriptions (including project descriptions, "
+            "education descriptions, certifications, achievements, and custom item descriptions) must be kept between 30 and 42 words "
+            "(approx. 220-300 characters) so they completely fill and take up exactly 2 to 3 lines in a wide single-column layout."
+        )
+        summary_instruction = (
+            "6. Professional 3 to 4 lines summary: The resume summary must be kept between 45 and 60 words (approx. 320-420 characters) "
+            "so it completely fills and takes up exactly 3 to 4 lines in a wide single-column layout."
         )
 
     system_prompt = (
@@ -427,8 +437,9 @@ async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
         "3. Standardize dates: Convert all dates (e.g. in experience, education, certifications, achievements, custom sections) to a clean 'Month Year' format (e.g., 'Jun 2023', 'Dec 2021', 'Present'). If a date is empty or says 'Present' / 'Current', leave it as is.\n"
         f"{bullet_instruction}\n"
         f"{desc_instruction}\n"
-        "6. Keep personal info (fullName, email, phone, location, website, linkedin, github, photoUrl), template preferences, and layout structure completely unchanged.\n"
-        "7. Preserve the exact value of all 'id' fields so React rendering keys and order are maintained.\n"
+        f"{summary_instruction}\n"
+        "7. Keep personal info (fullName, email, phone, location, website, linkedin, github, photoUrl), template preferences, and layout structure completely unchanged.\n"
+        "8. Preserve the exact value of all 'id' fields so React rendering keys and order are maintained.\n"
         "\n"
         "Return ONLY the raw JSON object matching the input structure, with no markdown formatting, no code block backticks, and no conversational text."
     )
