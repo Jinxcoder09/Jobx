@@ -89,16 +89,60 @@ async def ai_generate_summary(body: AiSummaryRequest) -> dict:
 
 @router.post("/ai/improve", response_model=AiTextResponse)
 async def ai_improve_bullet(body: AiImproveRequest) -> dict:
+    context_lower = (body.context or "").lower()
+    
+    if "education" in context_lower:
+        if not body.text.strip():
+            system_content = (
+                "You are a resume writer. Write a concise, professional description or notes for an education entry "
+                "based on the context provided (e.g. school, degree, field). Focus on coursework, honors, or academic activities. "
+                "Keep it under 2 sentences. Return only the description, no preface."
+            )
+        else:
+            system_content = (
+                "You are a resume writer. Refine and polish the given education notes/description. "
+                "Make it sound professional, focusing on academic achievement, coursework, honors, or activities. "
+                "Keep it concise (1-2 sentences). Return only the polished description, no preface."
+            )
+    elif "project" in context_lower:
+        if not body.text.strip():
+            system_content = (
+                "You are a resume writer. Write a concise, professional description for a project entry "
+                "based on the context provided (e.g. project name, technologies). Highlight technical challenges, solutions, or purpose. "
+                "Keep it under 2 sentences. Return only the description, no preface."
+            )
+        else:
+            system_content = (
+                "You are a resume writer. Refine and polish the given project description. "
+                "Ensure it highlights technical challenges, solutions, and impact. Use professional, active language. "
+                "Keep it concise (1-2 sentences). Return only the polished description, no preface."
+            )
+    elif any(x in context_lower for x in ["certification", "achievement", "custom"]):
+        if not body.text.strip():
+            system_content = (
+                "You are a resume writer. Write a concise, professional description for a resume entry "
+                "based on the context provided (e.g. title, subtitle). Focus on scope or impact. "
+                "Keep it under 2 sentences. Return only the description, no preface."
+            )
+        else:
+            system_content = (
+                "You are a resume writer. Refine and polish the given description for a certification, "
+                "achievement, or custom section item. Make it professional and concise. "
+                "Keep it to 1-2 sentences. Return only the polished description, no preface."
+            )
+    else:
+        system_content = (
+            "You are a resume bullet point generator. Given a rough description "
+            "or query, generate a polished resume bullet point. Lead with a strong "
+            "action verb, quantify impact when reasonable, keep under 22 words, "
+            "no first person, no buzzwords. Return only the bullet point, no preface."
+        )
+
     text = await groq_chat(
         [
             {
                 "role": "system",
-                "content": (
-                    "You are a resume bullet point generator. Given a rough description "
-                    "or query, generate a polished resume bullet point. Lead with a strong "
-                    "action verb, quantify impact when reasonable, keep under 22 words, "
-                    "no first person, no buzzwords. Return only the bullet point, no preface."
-                ),
+                "content": system_content,
             },
             {
                 "role": "user",

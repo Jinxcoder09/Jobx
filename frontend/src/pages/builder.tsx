@@ -66,6 +66,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, parse } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 import { ResumeRender } from "@/templates/Render";
 import { SortableList, SortableSectionList } from "@/components/SortableList";
 import { RichText } from "@/components/RichText";
@@ -780,15 +784,81 @@ function FormField({ label, value, onChange, type = "text" }: { label: string; v
   );
 }
 
-function parseCommaList(value: string): string[] {
-  return value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+function DatePickerField({
+  label,
+  value,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  value?: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const selectedDate = useMemo(() => {
+    if (!value || value.toLowerCase() === "present") return undefined;
+    try {
+      const parsed = Date.parse(value);
+      if (!isNaN(parsed)) {
+        return new Date(parsed);
+      }
+      const d = parse(value, "MMM yyyy", new Date());
+      if (!isNaN(d.getTime())) return d;
+    } catch {
+      // fallback
+    }
+    return undefined;
+  }, [value]);
+
+  const handleSelect = (date: Date | undefined) => {
+    if (date) {
+      const formatted = format(date, "MMM yyyy");
+      onChange(formatted);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5 flex-1">
+      <Label>{label}</Label>
+      <div className="relative flex items-center">
+        <Input
+          type="text"
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="pr-10"
+        />
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={disabled}
+              className="absolute right-1 h-7 w-7 text-muted-foreground hover:text-foreground"
+            >
+              <CalendarIcon className="size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={handleSelect}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+    </div>
+  );
 }
 
-function CommaListInput({
-  value,
+function SkillsTagInput({
+  value = [],
   onChange,
   placeholder,
 }: {
@@ -796,24 +866,98 @@ function CommaListInput({
   onChange: (v: string[]) => void;
   placeholder?: string;
 }) {
-  const [text, setText] = useState((value || []).join(", "));
+  const [inputValue, setInputValue] = useState("");
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
 
-  useEffect(() => {
-    const next = (value || []).join(", ");
-    setText((current) => (parseCommaList(current).join(", ") === next ? current : next));
-  }, [value]);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const trimmed = inputValue.trim();
+      if (trimmed && !value.includes(trimmed)) {
+        onChange([...value, trimmed]);
+        setInputValue("");
+      }
+    }
+  };
+
+  const handleRemove = (indexToRemove: number) => {
+    onChange(value.filter((_, i) => i !== indexToRemove));
+  };
+
+  const startEditing = (index: number, currentVal: string) => {
+    setEditingIndex(index);
+    setEditValue(currentVal);
+  };
+
+  const saveEdit = (indexToSave: number) => {
+    const trimmed = editValue.trim();
+    if (!trimmed) {
+      handleRemove(indexToSave);
+    } else {
+      onChange(value.map((v, i) => (i === indexToSave ? trimmed : v)));
+    }
+    setEditingIndex(null);
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveEdit(index);
+    } else if (e.key === "Escape") {
+      setEditingIndex(null);
+    }
+  };
 
   return (
-    <Input
-      className="mt-1"
-      placeholder={placeholder}
-      value={text}
-      onChange={(e) => {
-        const next = e.target.value;
-        setText(next);
-        onChange(parseCommaList(next));
-      }}
-    />
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[46px] bg-background border-input focus-within:ring-1 focus-within:ring-ring focus-within:border-ring">
+        {value.map((skill, idx) => {
+          if (editingIndex === idx) {
+            return (
+              <Input
+                key={idx}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={() => saveEdit(idx)}
+                onKeyDown={(e) => handleEditKeyDown(e, idx)}
+                autoFocus
+                className="h-6 px-1.5 py-0.5 text-xs w-24 bg-muted border-none outline-none focus-visible:ring-0"
+              />
+            );
+          }
+          return (
+            <Badge
+              key={idx}
+              variant="secondary"
+              className="cursor-pointer select-none gap-1 pl-2.5 pr-1.5 py-0.5 text-xs hover:bg-muted-foreground/10 group transition"
+            >
+              <span onClick={() => startEditing(idx, skill)} className="flex-1">
+                {skill}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleRemove(idx)}
+                className="text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-full p-0.5 -mr-0.5 transition"
+              >
+                <Plus className="size-3 rotate-45" />
+              </button>
+            </Badge>
+          );
+        })}
+        <input
+          type="text"
+          placeholder={value.length === 0 ? (placeholder || "Type and press Enter...") : "Add..."}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="flex-1 min-w-[120px] bg-transparent outline-none border-none text-sm p-0.5 h-6 text-foreground placeholder:text-muted-foreground"
+        />
+      </div>
+      <p className="text-[10px] text-muted-foreground italic">
+        Press Enter to add. Click a badge to edit, or 'x' to delete.
+      </p>
+    </div>
   );
 }
 
@@ -1023,8 +1167,8 @@ function ExperienceEditor({ data, setField, patchData }: { data: ResumeData; set
             <Row>
               <FormField label="Location" value={it.location} onChange={(v) => update(idx, { location: v })} />
               <div className="grid grid-cols-2 gap-2">
-                <FormField label="Start" value={it.startDate} onChange={(v) => update(idx, { startDate: v })} />
-                <FormField label="End" value={it.current ? "Present" : it.endDate} onChange={(v) => update(idx, { endDate: v })} />
+                <DatePickerField label="Start" value={it.startDate} onChange={(v) => update(idx, { startDate: v })} />
+                <DatePickerField label="End" value={it.current ? "Present" : it.endDate} onChange={(v) => update(idx, { endDate: v })} disabled={it.current} />
               </div>
             </Row>
             <div className="flex items-center gap-2 mt-1">
@@ -1094,6 +1238,7 @@ function ExperienceEditor({ data, setField, patchData }: { data: ResumeData; set
 
 function EducationEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const items = data.education || [];
+  const improve = useAiImproveBullet();
   function update(idx: number, patch: Partial<EducationItem>) {
     setField("education", items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
@@ -1118,12 +1263,38 @@ function EducationEditor({ data, setField }: { data: ResumeData; setField: <K ex
               <FormField label="Location" value={it.location} onChange={(v) => update(idx, { location: v })} />
             </Row>
             <Row>
-              <FormField label="Start" value={it.startDate} onChange={(v) => update(idx, { startDate: v })} />
-              <FormField label="End" value={it.endDate} onChange={(v) => update(idx, { endDate: v })} />
+              <DatePickerField label="Start" value={it.startDate} onChange={(v) => update(idx, { startDate: v })} />
+              <DatePickerField label="End" value={it.endDate} onChange={(v) => update(idx, { endDate: v })} />
             </Row>
             <FormField label="GPA" value={it.gpa} onChange={(v) => update(idx, { gpa: v })} />
-            <div className="space-y-1 mt-2">
-              <Label>Notes</Label>
+            <div className="space-y-1.5 mt-2">
+              <div className="flex items-center justify-between">
+                <Label>Notes</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs text-primary hover:bg-primary/10"
+                  disabled={improve.isPending}
+                  onClick={async () => {
+                    try {
+                      const out = await improve.mutateAsync({
+                        data: {
+                          text: it.description || "",
+                          context: `education: school=${it.school || ""}, degree=${it.degree || ""}, field=${it.field || ""}`
+                        }
+                      });
+                      update(idx, { description: out.text });
+                      toast.success(it.description ? "Notes improved" : "Notes generated");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "AI failed");
+                    }
+                  }}
+                >
+                  {improve.isPending ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                  <span>{it.description ? "Improve with AI" : "Generate with AI"}</span>
+                </Button>
+              </div>
               <Textarea rows={2} value={it.description || ""} onChange={(e) => update(idx, { description: e.target.value })} />
             </div>
           </Card>
@@ -1233,6 +1404,7 @@ function ProjectsEditor({ data, setField, patchData }: { data: ResumeData; setFi
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const generate = useAiGenerateBullets();
+  const improve = useAiImproveBullet();
   function update(idx: number, patch: Partial<ProjectItem>) {
     setField("projects", itemsRef.current.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
@@ -1264,8 +1436,34 @@ function ProjectsEditor({ data, setField, patchData }: { data: ResumeData; setFi
               <FormField label="Name" value={it.name} onChange={(v) => update(idx, { name: v })} />
               <FormField label="Link" value={it.link} onChange={(v) => update(idx, { link: v })} />
             </Row>
-            <div className="space-y-1 mt-2">
-              <Label>Description</Label>
+            <div className="space-y-1.5 mt-2">
+              <div className="flex items-center justify-between">
+                <Label>Description</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs text-primary hover:bg-primary/10"
+                  disabled={improve.isPending}
+                  onClick={async () => {
+                    try {
+                      const out = await improve.mutateAsync({
+                        data: {
+                          text: it.description || "",
+                          context: `project: name=${it.name || ""}, technologies=${(it.technologies || []).join(", ")}`
+                        }
+                      });
+                      update(idx, { description: out.text });
+                      toast.success(it.description ? "Description improved" : "Description generated");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "AI failed");
+                    }
+                  }}
+                >
+                  {improve.isPending ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                  <span>{it.description ? "Improve with AI" : "Generate with AI"}</span>
+                </Button>
+              </div>
               <Textarea rows={2} value={it.description || ""} onChange={(e) => update(idx, { description: e.target.value })} />
             </div>
             <div className="mt-3">
@@ -1315,9 +1513,9 @@ function ProjectsEditor({ data, setField, patchData }: { data: ResumeData; setFi
                 </div>
               </div>
             </div>
-            <div className="mt-3">
-              <Label>Technologies (comma separated)</Label>
-              <CommaListInput
+            <div className="mt-3 space-y-1.5">
+              <Label>Technologies</Label>
+              <SkillsTagInput
                 placeholder="e.g. Python, FastAPI, OpenAI"
                 value={it.technologies || []}
                 onChange={(technologies) => update(idx, { technologies })}
@@ -1416,17 +1614,12 @@ function SkillsEditor({ data, setField }: { data: ResumeData; setField: <K exten
                 <Sparkles className="size-4" /> Suggest
               </Button>
             </div>
-            <div className="mt-2">
-              <Label>Skills (comma separated)</Label>
-              <CommaListInput
+            <div className="mt-3 space-y-1.5">
+              <Label>Skills</Label>
+              <SkillsTagInput
                 value={it.items || []}
                 onChange={(items) => update(idx, { items })}
               />
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {(it.items || []).map((s, i) => (
-                  <Badge key={i} variant="secondary">{s}</Badge>
-                ))}
-              </div>
             </div>
           </Card>
         )}
@@ -1451,6 +1644,7 @@ function SimpleEditor({
   items: SimpleItem[];
   onChange: (v: SimpleItem[]) => void;
 }) {
+  const improve = useAiImproveBullet();
   function update(idx: number, patch: Partial<SimpleItem>) {
     onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
@@ -1471,11 +1665,37 @@ function SimpleEditor({
               <FormField label="Subtitle" value={it.subtitle} onChange={(v) => update(idx, { subtitle: v })} />
             </Row>
             <Row>
-              <FormField label="Date" value={it.date} onChange={(v) => update(idx, { date: v })} />
+              <DatePickerField label="Date" value={it.date} onChange={(v) => update(idx, { date: v })} />
               <div />
             </Row>
-            <div className="space-y-1 mt-2">
-              <Label>Description</Label>
+            <div className="space-y-1.5 mt-2">
+              <div className="flex items-center justify-between">
+                <Label>Description</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs text-primary hover:bg-primary/10"
+                  disabled={improve.isPending}
+                  onClick={async () => {
+                    try {
+                      const out = await improve.mutateAsync({
+                        data: {
+                          text: it.description || "",
+                          context: `${label.toLowerCase()}: title=${it.title || ""}, subtitle=${it.subtitle || ""}`
+                        }
+                      });
+                      update(idx, { description: out.text });
+                      toast.success(it.description ? "Description improved" : "Description generated");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "AI failed");
+                    }
+                  }}
+                >
+                  {improve.isPending ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                  <span>{it.description ? "Improve with AI" : "Generate with AI"}</span>
+                </Button>
+              </div>
               <Textarea rows={2} value={it.description || ""} onChange={(e) => update(idx, { description: e.target.value })} />
             </div>
           </Card>
