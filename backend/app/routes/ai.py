@@ -385,6 +385,13 @@ async def ai_parse_resume(body: AiParseRequest) -> dict:
     return {"data": _normalize_parsed(parsed)}
 
 
+def calculate_line_chars(layout: str, font_size: float) -> int:
+    base_chars = 90 if layout == "single" else 45
+    # Smaller font size = more chars per line, larger = fewer
+    scale_factor = 11.0 / max(7.0, font_size)
+    return round(base_chars * scale_factor)
+
+
 @router.post("/ai/optimize-resume", response_model=AiOptimizeResponse)
 async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
     import json
@@ -393,37 +400,36 @@ async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
     resume_json = json.dumps(resume_dict)
 
     layout = body.layout or "single"
+    font_size = body.fontSize or 11.0
 
-    if layout == "two-column":
-        # Narrow columns (approx 50-60 characters per line)
-        bullet_instruction = (
-            "4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be concise, "
-            "between 8 and 10 words (approx. 55-70 characters), ensuring it completely fills the single line in a narrow two-column layout without wrapping onto a second line."
-        )
-        desc_instruction = (
-            "5. Strict 2 to 3 lines for descriptions: All descriptions (including project descriptions, "
-            "education descriptions, certifications, achievements, and custom item descriptions) must be kept between 16 and 22 words "
-            "(approx. 110-150 characters) so they completely fill and take up exactly 2 to 3 lines in a narrow two-column layout."
-        )
-        summary_instruction = (
-            "6. Professional 3 to 4 lines summary: The resume summary must be kept between 24 and 32 words (approx. 160-220 characters) "
-            "so it completely fills and takes up exactly 3 to 4 lines in a narrow two-column layout."
-        )
-    else:  # single-column
-        # Wide columns (approx 90-110 characters per line)
-        bullet_instruction = (
-            "4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be concise, "
-            "between 15 and 18 words (approx. 110-135 characters), ensuring it completely fills the single line in a wide single-column layout without wrapping onto a second line. "
-            "For example: 'spearheaded development and deployment of cutting-edge cloud applications, boosting team collaboration and efficiency by 24%'."
-        )
-        desc_instruction = (
-            "5. Strict 2 to 3 lines for descriptions: All descriptions (including project descriptions, "
-            "education descriptions, certifications, achievements, and custom item descriptions) must be kept between 30 and 42 words "
-            "(approx. 220-300 characters) so they completely fill and take up exactly 2 to 3 lines in a wide single-column layout."
-        )
-        summary_instruction = (
-            "6. Professional 3 to 4 lines summary: The resume summary must be kept between 45 and 60 words (approx. 320-420 characters) "
-            "so it completely fills and takes up exactly 3 to 4 lines in a wide single-column layout."
+    # Calculate target character line length in real-time
+    L = calculate_line_chars(layout, font_size)
+
+    bullet_min = L - 10
+    bullet_max = L
+    desc_min = 2 * L - 15
+    desc_max = 3 * L
+
+    bullet_instruction = (
+        f"4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be exactly single-lined, "
+        f"completely filling the line width to cover the full length. To achieve this, each bullet point MUST be between {bullet_min} and {bullet_max} characters long. "
+        f"Do not write fewer than {bullet_min} characters (leaves blank gaps) and do not exceed {bullet_max} characters (causes wrapping onto a second line)."
+    )
+    desc_instruction = (
+        f"5. Strict 2 to 3 lines for descriptions: All descriptions (including project descriptions, "
+        f"education descriptions, certifications, achievements, and custom item descriptions) must take exactly 2 to 3 lines on the resume. "
+        f"To achieve this, each description MUST be between {desc_min} and {desc_max} characters long."
+    )
+    summary_instruction = (
+        f"6. Professional 2 to 3 lines summary: The resume summary must take exactly 2 to 3 lines on the resume. "
+        f"To achieve this, the summary MUST be between {desc_min} and {desc_max} characters long."
+    )
+
+    custom_guidelines = ""
+    if body.customInstructions and body.customInstructions.strip():
+        custom_guidelines = (
+            f"\n9. User's custom guidelines (Adhere to this strictly):\n"
+            f"{body.customInstructions.strip()}\n"
         )
 
     system_prompt = (
@@ -440,6 +446,7 @@ async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
         f"{summary_instruction}\n"
         "7. Keep personal info (fullName, email, phone, location, website, linkedin, github, photoUrl), template preferences, and layout structure completely unchanged.\n"
         "8. Preserve the exact value of all 'id' fields so React rendering keys and order are maintained.\n"
+        f"{custom_guidelines}"
         "\n"
         "Return ONLY the raw JSON object matching the input structure, with no markdown formatting, no code block backticks, and no conversational text."
     )

@@ -233,13 +233,15 @@ export default function Builder() {
 
   const optimizeResume = useAiOptimizeResume();
 
-  const handleOptimizeResume = useCallback(async () => {
+  const handleOptimizeResume = useCallback(async (customInstructions?: string) => {
     if (!draft) return;
     try {
       const result = await optimizeResume.mutateAsync({
         data: {
           resume: draft.data,
           layout: draft.theme?.layout || "single",
+          fontSize: draft.theme?.fontSize || 11,
+          customInstructions: customInstructions || undefined,
         },
       });
       patchData(result.data);
@@ -2037,10 +2039,11 @@ function formatBytes(n: number): string {
   data: ResumeData;
   autoAnalyze?: boolean;
   optimizing?: boolean;
-  onOptimize?: () => void;
+  onOptimize?: (customInstructions: string) => void;
 }) {
   const score = useAiAtsScore();
   const [job, setJob] = useState("");
+  const [customInstructions, setCustomInstructions] = useState("");
   const [result, setResult] = useState<{ score: number; strengths: string[]; improvements: string[] } | null>(null);
 
   const runAnalysis = useCallback(async () => {
@@ -2074,6 +2077,8 @@ function formatBytes(n: number): string {
         <div className="space-y-3">
           <Label>Job description (optional)</Label>
           <Textarea rows={4} value={job} onChange={(e) => setJob(e.target.value)} placeholder="Paste a job description for a tailored score." />
+          <Label>Custom AI instructions (optional)</Label>
+          <Textarea rows={2} value={customInstructions} onChange={(e) => setCustomInstructions(e.target.value)} placeholder="E.g., 'Make it focus on Web Design', 'Make tone more professional'." />
           <div className="flex flex-wrap gap-2">
             <Button
               disabled={score.isPending || optimizing}
@@ -2094,7 +2099,7 @@ function formatBytes(n: number): string {
               <Button
                 disabled={score.isPending || optimizing}
                 className="gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
-                onClick={onOptimize}
+                onClick={() => onOptimize(customInstructions)}
               >
                 {optimizing ? (
                   <>

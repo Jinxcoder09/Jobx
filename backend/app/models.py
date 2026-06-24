@@ -204,6 +204,8 @@ class AiParseRequest(BaseModel):
 class AiOptimizeRequest(BaseModel):
     resume: ResumeData
     layout: Optional[str] = "single"
+    fontSize: Optional[float] = 11.0
+    customInstructions: Optional[str] = None
 
 
 # ─── AI response bodies ───────────────────────────────────────────────────────
