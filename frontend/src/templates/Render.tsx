@@ -409,29 +409,35 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
   const measureRef = useRef<HTMLDivElement>(null);
   const [heights, setHeights] = useState<Record<string, number>>({});
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const container = measureRef.current;
     if (!container) return;
 
-    const elements = container.querySelectorAll("[data-flowable-id]");
-    const newHeights: Record<string, number> = {};
-    let changed = false;
-
-    elements.forEach((el: any) => {
-      const id = el.dataset.flowableId;
-      const h = el.offsetHeight;
-      if (heights[id] !== h) {
-        newHeights[id] = h;
-        changed = true;
-      } else {
-        newHeights[id] = heights[id];
-      }
+    const observer = new ResizeObserver((entries) => {
+      let changed = false;
+      setHeights((prevHeights) => {
+        const newHeights = { ...prevHeights };
+        entries.forEach((entry) => {
+          const target = entry.target as HTMLElement;
+          const id = target.dataset.flowableId;
+          if (!id) return;
+          const h = target.offsetHeight;
+          if (newHeights[id] !== h) {
+            newHeights[id] = h;
+            changed = true;
+          }
+        });
+        return changed ? newHeights : prevHeights;
+      });
     });
 
-    if (changed) {
-      setHeights(newHeights);
-    }
-  }, [resume, heights]);
+    const elements = container.querySelectorAll("[data-flowable-id]");
+    elements.forEach((el) => observer.observe(el));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [resume]);
 
   const getFlowablesForSection = (key: string) => {
     const list: any[] = [];
