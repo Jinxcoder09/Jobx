@@ -234,7 +234,7 @@ function ExperienceItemBlock({ e, theme, templateId }: { e: ExperienceItem; them
   return (
     <div
       style={{
-        marginBottom: 14,
+        paddingBottom: 14,
         paddingLeft: isTimeline ? 14 : 0,
         borderLeft: isTimeline ? `2px solid ${theme.accentColor}66` : undefined,
         position: "relative",
@@ -283,7 +283,7 @@ function ExperienceItemBlock({ e, theme, templateId }: { e: ExperienceItem; them
 
 function EducationItemBlock({ e, theme }: { e: EducationItem; theme: Theme }) {
   return (
-    <div style={{ marginBottom: 10, breakInside: "avoid", pageBreakInside: "avoid" }}>
+    <div style={{ paddingBottom: 10, breakInside: "avoid", pageBreakInside: "avoid" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
         <div>
           <div style={{ fontWeight: 600, color: theme.primaryColor }}>
@@ -307,7 +307,7 @@ function EducationItemBlock({ e, theme }: { e: EducationItem; theme: Theme }) {
 
 function ProjectItemBlock({ p, theme }: { p: ProjectItem; theme: Theme }) {
   return (
-    <div style={{ marginBottom: 10, breakInside: "avoid", pageBreakInside: "avoid" }}>
+    <div style={{ paddingBottom: 10, breakInside: "avoid", pageBreakInside: "avoid" }}>
       <div>
         <span style={{ fontWeight: 700, color: theme.primaryColor }}>{p.name}</span>
         {p.link && (
@@ -333,7 +333,7 @@ function ProjectItemBlock({ p, theme }: { p: ProjectItem; theme: Theme }) {
 
 function SkillItemBlock({ g, theme, compact }: { g: SkillGroup; theme: Theme; compact?: boolean }) {
   return (
-    <div style={{ marginBottom: 6, fontSize: compact ? "0.85em" : "0.9em", breakInside: "avoid", pageBreakInside: "avoid" }}>
+    <div style={{ paddingBottom: 6, fontSize: compact ? "0.85em" : "0.9em", breakInside: "avoid", pageBreakInside: "avoid" }}>
       <span style={{ fontWeight: 600, color: theme.primaryColor }}>{g.category}: </span>
       <span>{(g.items || []).join(", ")}</span>
     </div>
@@ -342,7 +342,7 @@ function SkillItemBlock({ g, theme, compact }: { g: SkillGroup; theme: Theme; co
 
 function SimpleItemBlock({ c, theme }: { c: SimpleItem; theme: Theme }) {
   return (
-    <div style={{ marginBottom: 6, breakInside: "avoid", pageBreakInside: "avoid" }}>
+    <div style={{ paddingBottom: 6, breakInside: "avoid", pageBreakInside: "avoid" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
         <div>
           <span style={{ fontWeight: 600, color: theme.primaryColor }}>{c.title}</span>
@@ -360,7 +360,7 @@ function SimpleItemBlock({ c, theme }: { c: SimpleItem; theme: Theme }) {
 function LanguagesBlock({ data, theme, templateId }: Ctx) {
   if (!data.languages?.length) return null;
   return (
-    <div style={{ marginBottom: theme.sectionSpacing }}>
+    <div style={{ paddingBottom: theme.sectionSpacing }}>
       <SectionTitle theme={theme} templateId={templateId}>Languages</SectionTitle>
       <div style={{ fontSize: "0.9em" }}>
         {data.languages.map((l, i) => (
@@ -446,7 +446,7 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
       list.push({
         id: "summary",
         render: () => (
-          <div className="resume-section summary-item" style={{ marginBottom: theme.sectionSpacing, breakInside: "avoid", pageBreakInside: "avoid" }}>
+          <div className="resume-section summary-item" style={{ paddingBottom: theme.sectionSpacing, breakInside: "avoid", pageBreakInside: "avoid" }}>
             <SectionTitle theme={theme} templateId={templateId}>Summary</SectionTitle>
             <div style={{ fontSize: "0.95em" }}>{data.summary}</div>
           </div>
@@ -707,61 +707,8 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
   }, [heights, isTwo, data, theme, templateId, order]);
 
   return (
-    <div
-      className="resume-page-container"
-      style={{
-        width: 794 * zoom,
-        transform: `scale(${zoom})`,
-        transformOrigin: "top left",
-        position: "relative",
-      }}
-    >
-      <style>{`
-        .resume-page * {
-          word-break: break-word;
-          overflow-wrap: break-word;
-          white-space: normal;
-        }
-        .resume-page {
-          /* Do NOT use break-inside: avoid here — it causes overflow to be
-             clipped instead of flowing to page 2. Sections handle their own
-             break avoidance via .resume-section below. */
-        }
-        .resume-section {
-          break-inside: avoid;
-          page-break-inside: avoid;
-          orphans: 3;
-          widows: 3;
-        }
-        .resume-section ul,
-        .resume-section ol {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-        .resume-section li {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-        .flowable-debug-border {
-          outline: 1px dashed rgba(239, 68, 68, 0.4);
-          position: relative;
-        }
-        .flowable-debug-badge {
-          position: absolute;
-          right: 2px;
-          top: 2px;
-          background: rgba(239, 68, 68, 0.9);
-          color: white;
-          font-size: 8px;
-          padding: 1px 3px;
-          border-radius: 2px;
-          z-index: 10;
-          font-family: monospace;
-          pointer-events: none;
-        }
-      `}</style>
-
-      {/* Hidden Measure Container */}
+    <>
+      {/* Hidden Measure Container (Unscaled for accurate layout measurements at zoom = 1) */}
       <div
         ref={measureRef}
         style={{
@@ -810,145 +757,200 @@ export function ResumeRender({ resume, zoom = 1, showPageGuides = false, debugMo
         )}
       </div>
 
-      {/* Actual Render View */}
-      {partitionedPages.length === 0 ? (
-        <div
-          ref={pageRef}
-          className="resume-page"
-          style={{
-            width: "210mm",
-            minHeight: "297mm",
-            padding: "0.6in 0.7in",
-            boxSizing: "border-box",
-            backgroundColor: "white",
-            position: "relative",
-            margin: "0 auto",
-            fontFamily: fontStack(theme.fontFamily),
-            fontSize: `${theme.fontSize ?? 11}pt`,
-            lineHeight: theme.lineSpacing ?? 1.4,
-            color: theme.primaryColor || "#0b0b0c",
-          }}
-        >
-          <Header data={data} theme={theme} templateId={templateId} />
-          {isTwo ? (
-            <div style={{ display: "grid", gridTemplateColumns: templateId === "creative" ? "1fr 2fr" : "2fr 1fr", gap: 24 }}>
-              <div style={templateId === "creative" ? { background: `${theme.accentColor}10`, padding: 14, borderRadius: 8 } : {}}>
-                {getLeftFlowables().map((f) => f.render())}
-              </div>
-              <div>
-                {getRightFlowables().map((f) => f.render())}
-              </div>
-            </div>
-          ) : (
-            <>
-              {getSingleFlowables().map((f) => f.render())}
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-6 print:gap-0">
-          {partitionedPages.map((page, pageIdx) => {
-            const pageContentHeight = isTwo 
-              ? Math.max(
-                  (page as { left: any[]; right: any[] }).left.reduce((sum: number, f: any) => sum + (heights[f.id] || 0), 0),
-                  (page as { left: any[]; right: any[] }).right.reduce((sum: number, f: any) => sum + (heights[f.id] || 0), 0)
-                ) + (pageIdx === 0 ? heights["header"] || 0 : 0)
-              : (page as any[]).reduce((sum: number, f: any) => sum + (heights[f.id] || 0), 0) + (pageIdx === 0 ? heights["header"] || 0 : 0);
+      <div
+        className="resume-page-container"
+        style={{
+          width: 794 * zoom,
+          transform: `scale(${zoom})`,
+          transformOrigin: "top left",
+          position: "relative",
+        }}
+      >
+        <style>{`
+          .resume-page * {
+            word-break: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+          }
+          .resume-page {
+            /* Do NOT use break-inside: avoid here — it causes overflow to be
+               clipped instead of flowing to page 2. Sections handle their own
+               break avoidance via .resume-section below. */
+          }
+          .resume-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            orphans: 3;
+            widows: 3;
+          }
+          .resume-section ul,
+          .resume-section ol {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          .resume-section li {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          .flowable-debug-border {
+            outline: 1px dashed rgba(239, 68, 68, 0.4);
+            position: relative;
+          }
+          .flowable-debug-badge {
+            position: absolute;
+            right: 2px;
+            top: 2px;
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            font-size: 8px;
+            padding: 1px 3px;
+            border-radius: 2px;
+            z-index: 10;
+            font-family: monospace;
+            pointer-events: none;
+          }
+        `}</style>
 
-            const isOverflow = pageContentHeight > 1008;
+        {/* Actual Render View */}
+        {partitionedPages.length === 0 ? (
+          <div
+            ref={pageRef}
+            className="resume-page"
+            style={{
+              width: "210mm",
+              minHeight: "297mm",
+              padding: "0.6in 0.7in",
+              boxSizing: "border-box",
+              backgroundColor: "white",
+              position: "relative",
+              margin: "0 auto",
+              fontFamily: fontStack(theme.fontFamily),
+              fontSize: `${theme.fontSize ?? 11}pt`,
+              lineHeight: theme.lineSpacing ?? 1.4,
+              color: theme.primaryColor || "#0b0b0c",
+            }}
+          >
+            <Header data={data} theme={theme} templateId={templateId} />
+            {isTwo ? (
+              <div style={{ display: "grid", gridTemplateColumns: templateId === "creative" ? "1fr 2fr" : "2fr 1fr", gap: 24 }}>
+                <div style={templateId === "creative" ? { background: `${theme.accentColor}10`, padding: 14, borderRadius: 8 } : {}}>
+                  {getLeftFlowables().map((f) => f.render())}
+                </div>
+                <div>
+                  {getRightFlowables().map((f) => f.render())}
+                </div>
+              </div>
+            ) : (
+              <>
+                {getSingleFlowables().map((f) => f.render())}
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6 print:gap-0">
+            {partitionedPages.map((page, pageIdx) => {
+              const pageContentHeight = isTwo 
+                ? Math.max(
+                    (page as { left: any[]; right: any[] }).left.reduce((sum: number, f: any) => sum + (heights[f.id] || 0), 0),
+                    (page as { left: any[]; right: any[] }).right.reduce((sum: number, f: any) => sum + (heights[f.id] || 0), 0)
+                  ) + (pageIdx === 0 ? heights["header"] || 0 : 0)
+                : (page as any[]).reduce((sum: number, f: any) => sum + (heights[f.id] || 0), 0) + (pageIdx === 0 ? heights["header"] || 0 : 0);
 
-            return (
-              <div
-                key={pageIdx}
-                className="resume-page relative"
-                style={{
-                  width: "210mm",
-                  minHeight: "297mm",
-                  padding: "0.6in 0.7in",
-                  boxSizing: "border-box",
-                  backgroundColor: "white",
-                  margin: "0 auto",
-                  boxShadow: "0 4px 12px rgba(15,23,42,0.08)",
-                  fontFamily: fontStack(theme.fontFamily),
-                  fontSize: `${theme.fontSize ?? 11}pt`,
-                  lineHeight: theme.lineSpacing ?? 1.4,
-                  color: theme.primaryColor || "#0b0b0c",
-                  pageBreakAfter: "always",
-                  breakAfter: "page",
-                }}
-              >
-                {pageIdx === 0 && (
-                  <div className={debugMode ? "flowable-debug-border" : ""}>
-                    <Header data={data} theme={theme} templateId={templateId} />
-                    {debugMode && (
-                      <div className="flowable-debug-badge">
-                        header ({heights["header"] || 0}px)
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {isTwo ? (
-                  <div style={{ display: "grid", gridTemplateColumns: templateId === "creative" ? "1fr 2fr" : "2fr 1fr", gap: 24, height: "100%" }}>
-                    <div style={templateId === "creative" ? { background: `${theme.accentColor}10`, padding: 14, borderRadius: 8 } : {}}>
-                      {(page as { left: any[]; right: any[] }).left.map((f: any) => (
-                        <div key={f.id} className={debugMode ? "flowable-debug-border" : ""}>
-                          {f.render()}
-                          {debugMode && (
-                            <div className="flowable-debug-badge">
-                              {f.id} ({heights[f.id] || 0}px)
-                            </div>
-                          )}
+              const isOverflow = pageContentHeight > 1008;
+
+              return (
+                <div
+                  key={pageIdx}
+                  className="resume-page relative"
+                  style={{
+                    width: "210mm",
+                    minHeight: "297mm",
+                    padding: "0.6in 0.7in",
+                    boxSizing: "border-box",
+                    backgroundColor: "white",
+                    margin: "0 auto",
+                    boxShadow: "0 4px 12px rgba(15,23,42,0.08)",
+                    fontFamily: fontStack(theme.fontFamily),
+                    fontSize: `${theme.fontSize ?? 11}pt`,
+                    lineHeight: theme.lineSpacing ?? 1.4,
+                    color: theme.primaryColor || "#0b0b0c",
+                    pageBreakAfter: "always",
+                    breakAfter: "page",
+                  }}
+                >
+                  {pageIdx === 0 && (
+                    <div className={debugMode ? "flowable-debug-border" : ""}>
+                      <Header data={data} theme={theme} templateId={templateId} />
+                      {debugMode && (
+                        <div className="flowable-debug-badge">
+                          header ({heights["header"] || 0}px)
                         </div>
-                      ))}
+                      )}
                     </div>
-                    <div>
-                      {(page as { left: any[]; right: any[] }).right.map((f: any) => (
-                        <div key={f.id} className={debugMode ? "flowable-debug-border" : ""}>
-                          {f.render()}
-                          {debugMode && (
-                            <div className="flowable-debug-badge">
-                              {f.id} ({heights[f.id] || 0}px)
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ height: "100%" }}>
-                    {(page as any[]).map((f: any) => (
-                      <div key={f.id} className={debugMode ? "flowable-debug-border" : ""}>
-                        {f.render()}
-                        {debugMode && (
-                          <div className="flowable-debug-badge">
-                            {f.id} ({heights[f.id] || 0}px)
+                  )}
+                  
+                  {isTwo ? (
+                    <div style={{ display: "grid", gridTemplateColumns: templateId === "creative" ? "1fr 2fr" : "2fr 1fr", gap: 24, height: "100%" }}>
+                      <div style={templateId === "creative" ? { background: `${theme.accentColor}10`, padding: 14, borderRadius: 8 } : {}}>
+                        {(page as { left: any[]; right: any[] }).left.map((f: any) => (
+                          <div key={f.id} className={debugMode ? "flowable-debug-border" : ""}>
+                            {f.render()}
+                            {debugMode && (
+                              <div className="flowable-debug-badge">
+                                {f.id} ({heights[f.id] || 0}px)
+                              </div>
+                            )}
                           </div>
-                        )}
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div>
+                        {(page as { left: any[]; right: any[] }).right.map((f: any) => (
+                          <div key={f.id} className={debugMode ? "flowable-debug-border" : ""}>
+                            {f.render()}
+                            {debugMode && (
+                              <div className="flowable-debug-badge">
+                                {f.id} ({heights[f.id] || 0}px)
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ height: "100%" }}>
+                      {(page as any[]).map((f: any) => (
+                        <div key={f.id} className={debugMode ? "flowable-debug-border" : ""}>
+                          {f.render()}
+                          {debugMode && (
+                            <div className="flowable-debug-badge">
+                              {f.id} ({heights[f.id] || 0}px)
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                {showPageGuides && (
-                  <div className="absolute right-4 bottom-4 bg-muted px-2 py-1 rounded text-[10px] font-bold tracking-wider text-muted-foreground select-none no-print">
-                    PAGE {pageIdx + 1} OF {partitionedPages.length}
-                  </div>
-                )}
+                  {showPageGuides && (
+                    <div className="absolute right-4 bottom-4 bg-muted px-2 py-1 rounded text-[10px] font-bold tracking-wider text-muted-foreground select-none no-print">
+                      PAGE {pageIdx + 1} OF {partitionedPages.length}
+                    </div>
+                  )}
 
-                {debugMode && (
-                  <div className="absolute left-4 bottom-4 bg-slate-900/90 text-white px-2 py-1 rounded text-[10px] font-mono select-none no-print flex gap-2 items-center">
-                    <span>Content: {Math.round(pageContentHeight)}px / 1008px</span>
-                    {isOverflow && (
-                      <span className="text-red-400 font-bold">⚠️ OVERFLOW</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+                  {debugMode && (
+                    <div className="absolute left-4 bottom-4 bg-slate-900/90 text-white px-2 py-1 rounded text-[10px] font-mono select-none no-print flex gap-2 items-center">
+                      <span>Content: {Math.round(pageContentHeight)}px / 1008px</span>
+                      {isOverflow && (
+                        <span className="text-red-400 font-bold">⚠️ OVERFLOW</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
