@@ -201,10 +201,15 @@ class AiParseRequest(BaseModel):
     text: str
 
 
+class AiOptimizeRequest(BaseModel):
+    resume: ResumeData
+
+
 # ─── AI response bodies ───────────────────────────────────────────────────────
 
 class AiTextResponse(BaseModel):
     text: str
+
 
 
 class AiSkillsResponse(BaseModel):
@@ -223,6 +228,11 @@ class AiScoreResponse(BaseModel):
 
 class AiParseResponse(BaseModel):
     data: dict[str, Any]
+
+
+class AiOptimizeResponse(BaseModel):
+    data: ResumeData
+
 
 
 # ─── Template ─────────────────────────────────────────────────────────────────

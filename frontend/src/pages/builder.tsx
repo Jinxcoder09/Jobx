@@ -13,6 +13,7 @@ import {
   useAiFixGrammar,
   useAiAtsScore,
   useAiParseResume,
+  useAiOptimizeResume,
   exportResumeAsPdf,
   exportResumeAsDocx,
   type Resume,
@@ -134,6 +135,7 @@ export default function Builder() {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [scoreOpen, setScoreOpen] = useState(false);
+  const [autoAnalyze, setAutoAnalyze] = useState(false);
   const [showPageGuides, setShowPageGuides] = useState(true);
   const [debugMode, setDebugMode] = useState(false);
 
@@ -229,6 +231,21 @@ export default function Builder() {
     setDraft((current) => (current ? { ...current, ...p } : current));
   }
 
+  const optimizeResume = useAiOptimizeResume();
+
+  const handleOptimizeResume = useCallback(async () => {
+    if (!draft) return;
+    try {
+      const result = await optimizeResume.mutateAsync({ data: { resume: draft.data } });
+      patchData(result.data);
+      setAutoAnalyze(true);
+      setScoreOpen(true);
+      toast.success("Resume optimized for ATS successfully!");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Optimization failed");
+    }
+  }, [draft, optimizeResume, patchData]);
+
   if (isLoading || !draft)
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
@@ -258,13 +275,18 @@ export default function Builder() {
         onTemplate={(v) => patchResume({ templateId: v })}
         onPatchTheme={patchTheme}
         onImportOpen={() => setImportOpen(true)}
-        onScoreOpen={() => setScoreOpen(true)}
+        onScoreOpen={() => {
+          setAutoAnalyze(false);
+          setScoreOpen(true);
+        }}
         onLoadSample={() => patchData(sampleData())}
         onPreview={() => window.open(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/preview/${draft.id}`, "_blank")}
         onExportPdf={() => exportResumeAsPdf(draft).catch((e) => toast.error(e.message))}
         onExportDocx={() => exportResumeAsDocx(draft).catch((e) => toast.error(e.message))}
         onBack={() => setLoc("/dashboard")}
         onReorderOpen={() => setReorderOpen(true)}
+        optimizing={optimizeResume.isPending}
+        onOptimize={handleOptimizeResume}
       />
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[224px_minmax(420px,520px)_1fr] min-h-0 relative">
         <SectionsSidebar
@@ -344,6 +366,9 @@ export default function Builder() {
         open={scoreOpen}
         onOpenChange={setScoreOpen}
         data={data}
+        autoAnalyze={autoAnalyze}
+        optimizing={optimizeResume.isPending}
+        onOptimize={handleOptimizeResume}
       />
 
       {/* Section Reorder Dialog (Mobile/Tablet only) */}
@@ -393,6 +418,8 @@ function TopBar({
   onExportDocx,
   onBack,
   onReorderOpen,
+  optimizing = false,
+  onOptimize,
 }: {
   draft: Resume;
   templates: { id: string; name: string }[];
@@ -413,6 +440,8 @@ function TopBar({
   onExportDocx: () => void;
   onBack: () => void;
   onReorderOpen: () => void;
+  optimizing?: boolean;
+  onOptimize?: () => void;
 }) {
   const theme = draft.theme as Theme;
   return (
@@ -539,6 +568,23 @@ function TopBar({
         <Button variant="ghost" className="gap-1.5 hidden lg:inline-flex" onClick={onScoreOpen}>
           <ListChecks className="size-4" /> ATS Score
         </Button>
+        {onOptimize && (
+          <Button
+            disabled={optimizing}
+            className="gap-1.5 hidden lg:inline-flex bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+            onClick={onOptimize}
+          >
+            {optimizing ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Optimizing…
+              </>
+            ) : (
+              <>
+                <Sparkles className="size-4 fill-white/20 animate-pulse" /> Get a Higher ATS Score
+              </>
+            )}
+          </Button>
+        )}
         <Button variant="ghost" className="gap-1.5 hidden lg:inline-flex" onClick={onImportOpen}>
           <Upload className="size-4" /> Import
         </Button>
@@ -563,6 +609,21 @@ function TopBar({
               <ListChecks className="size-4 mr-2" />
               ATS Score
             </DropdownMenuItem>
+            {onOptimize && (
+              <DropdownMenuItem onClick={onOptimize} disabled={optimizing}>
+                {optimizing ? (
+                  <>
+                    <Loader2 className="size-4 mr-2 animate-spin" />
+                    Optimizing…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4 mr-2 text-violet-600 fill-violet-600/20" />
+                    Get a Higher ATS Score
+                  </>
+                )}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={onImportOpen}>
               <Upload className="size-4 mr-2" />
               Import resume
@@ -1958,12 +2019,39 @@ function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
-}
-
-function AtsScoreDialog({ open, onOpenChange, data }: { open: boolean; onOpenChange: (v: boolean) => void; data: ResumeData }) {
+}function AtsScoreDialog({
+  open,
+  onOpenChange,
+  data,
+  autoAnalyze = false,
+  optimizing = false,
+  onOptimize,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  data: ResumeData;
+  autoAnalyze?: boolean;
+  optimizing?: boolean;
+  onOptimize?: () => void;
+}) {
   const score = useAiAtsScore();
   const [job, setJob] = useState("");
   const [result, setResult] = useState<{ score: number; strengths: string[]; improvements: string[] } | null>(null);
+
+  const runAnalysis = useCallback(async () => {
+    try {
+      const out = await score.mutateAsync({ data: { resume: data, jobDescription: job || undefined } });
+      setResult(out);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to analyze score");
+    }
+  }, [score, data, job]);
+
+  useEffect(() => {
+    if (open && autoAnalyze) {
+      runAnalysis();
+    }
+  }, [open, autoAnalyze]);
 
   const tone = useMemo(() => {
     const s = result?.score ?? 0;
@@ -1981,20 +2069,40 @@ function AtsScoreDialog({ open, onOpenChange, data }: { open: boolean; onOpenCha
         <div className="space-y-3">
           <Label>Job description (optional)</Label>
           <Textarea rows={4} value={job} onChange={(e) => setJob(e.target.value)} placeholder="Paste a job description for a tailored score." />
-          <Button
-            disabled={score.isPending}
-            className="gap-1.5"
-            onClick={async () => {
-              try {
-                const out = await score.mutateAsync({ data: { resume: data, jobDescription: job || undefined } });
-                setResult(out);
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : "Failed");
-              }
-            }}
-          >
-            <Sparkles className="size-4" /> {score.isPending ? "Analyzing…" : "Analyze"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={score.isPending || optimizing}
+              className="gap-1.5"
+              onClick={runAnalysis}
+            >
+              {score.isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Analyzing…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-4" /> Analyze
+                </>
+              )}
+            </Button>
+            {onOptimize && (
+              <Button
+                disabled={score.isPending || optimizing}
+                className="gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+                onClick={onOptimize}
+              >
+                {optimizing ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Optimizing…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4 fill-white/20 animate-pulse" /> Get a Higher ATS Score
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
           {result && (
             <div className="pt-2">
               <div className={`text-5xl font-bold ${tone}`}>{result.score}<span className="text-base text-muted-foreground">/100</span></div>

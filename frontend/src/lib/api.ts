@@ -311,6 +311,20 @@ export function useAiParseResume(): UseMutationResult<
   });
 }
 
+export function useAiOptimizeResume(): UseMutationResult<
+  { data: ResumeData },
+  Error,
+  { data: { resume: ResumeData } }
+> {
+  return useMutation({
+    mutationFn: ({ data }) =>
+      apiFetch<{ data: ResumeData }>("/api/ai/optimize-resume", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  });
+}
+
 // ─── Re-export types for convenience (mirrors @workspace/api-client-react) ───
 export type {
   Resume,

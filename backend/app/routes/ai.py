@@ -27,6 +27,9 @@ from ..models import (
     AiSkillsResponse,
     AiSummaryRequest,
     AiTextResponse,
+    AiOptimizeRequest,
+    AiOptimizeResponse,
+    ResumeData,
 )
 
 logger = logging.getLogger(__name__)
@@ -372,6 +375,166 @@ async def ai_parse_resume(body: AiParseRequest) -> dict:
         return {"data": {"summary": text[:1000]}}
 
     return {"data": _normalize_parsed(parsed)}
+
+
+@router.post("/ai/optimize-resume", response_model=AiOptimizeResponse)
+async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
+    import json
+
+    resume_dict = body.resume.model_dump()
+    resume_json = json.dumps(resume_dict)
+
+    system_prompt = (
+        "You are an expert resume writer and ATS optimization engine. Your goal is to maximize the ATS score of the resume. "
+        "You must return a STRICT JSON object representing the optimized resume data. "
+        "The returned JSON must have the EXACT same structure and keys as the input JSON, preserving all IDs (e.g. 'id') and personal details. "
+        "\n"
+        "Apply these specific optimizations to the content:\n"
+        "1. Remove repeating overused verbs (like 'led', 'managed', 'worked', 'assisted', 'responsible for') by replacing them with diverse, strong, active industry verbs (e.g. 'spearheaded', 'orchestrated', 'engineered', 'championed', 'designed', 'optimized', 'cultivated').\n"
+        "2. Quantify achievements: Review every bullet point, project description, and achievement. If a bullet or description lacks numbers or metrics, inject realistic, professional metrics (e.g., percentages, dollar amounts, time saved, team sizes, scale numbers like 'boosted performance by 24%', 'saved $12k annually', 'collaborated with a 6-person team'). Make them sound natural and contextually appropriate.\n"
+        "3. Standardize dates: Convert all dates (e.g. in experience, education, certifications, achievements, custom sections) to a clean 'Month Year' format (e.g., 'Jun 2023', 'Dec 2021', 'Present'). If a date is empty or says 'Present' / 'Current', leave it as is.\n"
+        "4. Keep personal info (fullName, email, phone, location, website, linkedin, github, photoUrl), template preferences, and layout structure completely unchanged.\n"
+        "5. Preserve the exact value of all 'id' fields so React rendering keys and order are maintained.\n"
+        "\n"
+        "Return ONLY the raw JSON object matching the input structure, with no markdown formatting, no code block backticks, and no conversational text."
+    )
+
+    try:
+        raw = await groq_chat(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Input Resume JSON:\n{resume_json}"},
+            ],
+            temperature=0.3,
+            json_mode=True,
+            max_tokens=4000,
+        )
+        parsed = extract_json(raw)
+        if not parsed or not isinstance(parsed, dict):
+            raise ValueError("Groq returned invalid or empty JSON")
+
+        optimized_data = _merge_optimized_data(resume_dict, parsed)
+        return {"data": ResumeData(**optimized_data)}
+    except Exception as e:
+        logger.warning("Resume optimization failed, falling back to original: %s", e)
+        return {"data": body.resume}
+
+
+def _merge_optimized_data(original: dict, optimized: dict) -> dict:
+    result = original.copy()
+
+    # Update summary
+    if "summary" in optimized and isinstance(optimized["summary"], str):
+        result["summary"] = optimized["summary"]
+
+    # Helper to merge items in lists by ID
+    def merge_list_by_id(orig_list: list, opt_list: list, fields_to_copy: list[str], list_fields: dict[str, list] = None) -> list:
+        if not isinstance(orig_list, list) or not isinstance(opt_list, list):
+            return orig_list
+        opt_map = {item.get("id"): item for item in opt_list if isinstance(item, dict) and item.get("id")}
+        new_list = []
+        for orig_item in orig_list:
+            if not isinstance(orig_item, dict):
+                new_list.append(orig_item)
+                continue
+            item_id = orig_item.get("id")
+            opt_item = opt_map.get(item_id)
+            if opt_item:
+                merged_item = orig_item.copy()
+                for field in fields_to_copy:
+                    if field in opt_item:
+                        merged_item[field] = opt_item[field]
+                if list_fields:
+                    for field in list_fields.keys():
+                        if field in opt_item and isinstance(opt_item[field], list):
+                            merged_item[field] = opt_item[field]
+                new_list.append(merged_item)
+            else:
+                new_list.append(orig_item)
+        return new_list
+
+    # Experience
+    result["experience"] = merge_list_by_id(
+        original.get("experience"),
+        optimized.get("experience"),
+        ["role", "company", "location", "startDate", "endDate"],
+        {"bullets": []}
+    )
+
+    # Education
+    result["education"] = merge_list_by_id(
+        original.get("education"),
+        optimized.get("education"),
+        ["school", "degree", "field", "location", "startDate", "endDate", "gpa", "description"]
+    )
+
+    # Projects
+    result["projects"] = merge_list_by_id(
+        original.get("projects"),
+        optimized.get("projects"),
+        ["name", "link", "description"],
+        {"bullets": [], "technologies": []}
+    )
+
+    # Skills
+    result["skills"] = merge_list_by_id(
+        original.get("skills"),
+        optimized.get("skills"),
+        ["category"],
+        {"items": []}
+    )
+
+    # Certifications
+    result["certifications"] = merge_list_by_id(
+        original.get("certifications"),
+        optimized.get("certifications"),
+        ["title", "subtitle", "date", "description"]
+    )
+
+    # Achievements
+    result["achievements"] = merge_list_by_id(
+        original.get("achievements"),
+        optimized.get("achievements"),
+        ["title", "subtitle", "date", "description"]
+    )
+
+    # Languages
+    result["languages"] = merge_list_by_id(
+        original.get("languages"),
+        optimized.get("languages"),
+        ["name", "level"]
+    )
+
+    # Custom sections
+    orig_custom = original.get("custom")
+    opt_custom = optimized.get("custom")
+    if isinstance(orig_custom, list) and isinstance(opt_custom, list):
+        opt_custom_map = {c.get("id"): c for c in opt_custom if isinstance(c, dict) and c.get("id")}
+        new_custom = []
+        for orig_c in orig_custom:
+            if not isinstance(orig_c, dict):
+                new_custom.append(orig_c)
+                continue
+            cid = orig_c.get("id")
+            opt_c = opt_custom_map.get(cid)
+            if opt_c:
+                merged_c = orig_c.copy()
+                if "title" in opt_c:
+                    merged_c["title"] = opt_c["title"]
+
+                orig_items = orig_c.get("items")
+                opt_items = opt_c.get("items")
+                merged_c["items"] = merge_list_by_id(
+                    orig_items,
+                    opt_items,
+                    ["title", "subtitle", "date", "description"]
+                )
+                new_custom.append(merged_c)
+            else:
+                new_custom.append(orig_c)
+        result["custom"] = new_custom
+
+    return result
 
 
 # ─── Parse normalizer ─────────────────────────────────────────────────────────
