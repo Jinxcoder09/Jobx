@@ -95,6 +95,115 @@ export interface Theme {
   layout?: "single" | "two-column";
 }
 
+// ─── Resume serialisation ────────────────────────────────────────────────────
+// Data can arrive from imported JSON as well as UI state. Build a fresh, known
+// shape before sending it to the API so a browser event/DOM object can never be
+// persisted or passed to JSON.stringify.
+
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function recordList(value: unknown): UnknownRecord[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+function simpleItem(value: UnknownRecord): SimpleItem {
+  return {
+    id: stringValue(value.id),
+    title: stringValue(value.title),
+    subtitle: stringValue(value.subtitle),
+    date: stringValue(value.date),
+    description: stringValue(value.description),
+  };
+}
+
+/**
+ * Returns a JSON-safe copy containing only the supported resume fields.
+ *
+ * This is intentionally a whitelist rather than a generic deep clone: React
+ * events and DOM nodes contain circular references, while valid resume data
+ * consists solely of strings, booleans, arrays, and plain objects.
+ */
+export function sanitizeResumeData(value: unknown): ResumeData {
+  const data = isRecord(value) ? value : {};
+  const personal = isRecord(data.personal) ? data.personal : {};
+
+  return {
+    personal: {
+      fullName: stringValue(personal.fullName),
+      title: stringValue(personal.title),
+      email: stringValue(personal.email),
+      phone: stringValue(personal.phone),
+      location: stringValue(personal.location),
+      website: stringValue(personal.website),
+      linkedin: stringValue(personal.linkedin),
+      github: stringValue(personal.github),
+      photoUrl: stringValue(personal.photoUrl),
+    },
+    summary: stringValue(data.summary),
+    experience: recordList(data.experience).map((item) => ({
+      id: stringValue(item.id),
+      company: stringValue(item.company),
+      role: stringValue(item.role),
+      location: stringValue(item.location),
+      startDate: stringValue(item.startDate),
+      endDate: stringValue(item.endDate),
+      current: item.current === true,
+      bullets: stringList(item.bullets),
+    })),
+    education: recordList(data.education).map((item) => ({
+      id: stringValue(item.id),
+      school: stringValue(item.school),
+      degree: stringValue(item.degree),
+      field: stringValue(item.field),
+      location: stringValue(item.location),
+      startDate: stringValue(item.startDate),
+      endDate: stringValue(item.endDate),
+      gpa: stringValue(item.gpa),
+      description: stringValue(item.description),
+    })),
+    projects: recordList(data.projects).map((item) => ({
+      id: stringValue(item.id),
+      name: stringValue(item.name),
+      link: stringValue(item.link),
+      description: stringValue(item.description),
+      bullets: stringList(item.bullets),
+      technologies: stringList(item.technologies),
+    })),
+    skills: recordList(data.skills).map((item) => ({
+      id: stringValue(item.id),
+      category: stringValue(item.category),
+      items: stringList(item.items),
+    })),
+    certifications: recordList(data.certifications).map(simpleItem),
+    achievements: recordList(data.achievements).map(simpleItem),
+    languages: recordList(data.languages).map((item) => ({
+      id: stringValue(item.id),
+      name: stringValue(item.name),
+      level: stringValue(item.level),
+    })),
+    custom: recordList(data.custom).map((section) => ({
+      id: stringValue(section.id),
+      title: stringValue(section.title),
+      items: recordList(section.items).map(simpleItem),
+    })),
+    sectionOrder: stringList(data.sectionOrder),
+  };
+}
+
+// ─── Resume top-level ─────────────────────────────────────────────────────────
+
 export interface Resume {
   id: string;
   title: string;

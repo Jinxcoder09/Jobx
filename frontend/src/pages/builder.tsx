@@ -85,7 +85,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { FONT_OPTIONS, SECTION_LABELS, uid, deduplicateSectionOrder } from "@/lib/types";
+import { FONT_OPTIONS, SECTION_LABELS, uid, deduplicateSectionOrder, sanitizeResumeData } from "@/lib/types";
 import { defaultTheme, emptyData } from "@/lib/defaults";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -164,7 +164,7 @@ export default function Builder() {
       const safe: Resume = {
         ...resume,
         theme: { ...defaultTheme(), ...(resume.theme || {}) },
-        data: { ...emptyData(), ...(resume.data || {}) } as ResumeData,
+        data: sanitizeResumeData({ ...emptyData(), ...(resume.data || {}) }),
       };
       setDraft(safe);
     }
@@ -208,7 +208,10 @@ export default function Builder() {
     dirtyRef.current = true;
     setDraft((current) => {
       if (!current) return current;
-      return { ...current, data: { ...(current.data as ResumeData), ...p } };
+      return {
+        ...current,
+        data: sanitizeResumeData({ ...(current.data as ResumeData), ...p }),
+      };
     });
   }
   function patchTheme(p: Partial<Theme>) {

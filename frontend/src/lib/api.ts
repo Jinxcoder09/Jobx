@@ -12,12 +12,13 @@ import {
   type QueryKey,
 } from "@tanstack/react-query";
 
-import type {
-  Resume,
-  ResumeSummary,
-  Template,
-  Theme,
-  ResumeData,
+import {
+  sanitizeResumeData,
+  type Resume,
+  type ResumeSummary,
+  type Template,
+  type Theme,
+  type ResumeData,
 } from "./types";
 
 // ─── Base URL ─────────────────────────────────────────────────────────────────
@@ -271,14 +272,21 @@ export function useAiFixGrammar(): UseMutationResult<
 export function useAiAtsScore(): UseMutationResult<
   { score: number; strengths: string[]; improvements: string[] },
   Error,
-  { data: { resume?: unknown; jobDescription?: string } }
+  { data: { resume?: ResumeData; jobDescription?: string } }
 > {
   return useMutation({
-    mutationFn: ({ data }) =>
-      apiFetch<{ score: number; strengths: string[]; improvements: string[] }>(
+    mutationFn: ({ data }) => {
+      // Never stringify UI state directly. Imported/corrupted state can contain
+      // a React event or DOM node, both of which carry circular references.
+      const payload = {
+        resume: sanitizeResumeData(data.resume),
+        jobDescription: typeof data.jobDescription === "string" ? data.jobDescription : undefined,
+      };
+      return apiFetch<{ score: number; strengths: string[]; improvements: string[] }>(
         "/api/ai/score",
-        { method: "POST", body: JSON.stringify(data) },
-      ),
+        { method: "POST", body: JSON.stringify(payload) },
+      );
+    },
   });
 }
 
