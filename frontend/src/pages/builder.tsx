@@ -136,6 +136,12 @@ export default function Builder() {
   const [importOpen, setImportOpen] = useState(false);
   const [scoreOpen, setScoreOpen] = useState(false);
   const [autoAnalyze, setAutoAnalyze] = useState(false);
+  // Bumped every time an optimize run finishes, so the ATS Score dialog
+  // always re-analyzes the freshly optimized resume — even if it was
+  // already open from a previous "Get a Higher ATS Score" click (where
+  // `autoAnalyze`/`scoreOpen` wouldn't otherwise change value and the
+  // effect that triggers re-analysis would never re-fire).
+  const [optimizeVersion, setOptimizeVersion] = useState(0);
   const [showPageGuides, setShowPageGuides] = useState(true);
   const [debugMode, setDebugMode] = useState(false);
 
@@ -255,6 +261,7 @@ export default function Builder() {
       });
       patchData(result.data);
       setAutoAnalyze(true);
+      setOptimizeVersion((v) => v + 1);
       setScoreOpen(true);
       toast.success("Resume optimized for ATS successfully!");
     } catch (e) {
@@ -383,6 +390,7 @@ export default function Builder() {
         onOpenChange={setScoreOpen}
         data={data}
         autoAnalyze={autoAnalyze}
+        optimizeVersion={optimizeVersion}
         optimizing={optimizeResume.isPending}
         onOptimize={handleOptimizeResume}
       />
@@ -2040,6 +2048,7 @@ function formatBytes(n: number): string {
   onOpenChange,
   data,
   autoAnalyze = false,
+  optimizeVersion = 0,
   optimizing = false,
   onOptimize,
 }: {
@@ -2047,6 +2056,7 @@ function formatBytes(n: number): string {
   onOpenChange: (v: boolean) => void;
   data: ResumeData;
   autoAnalyze?: boolean;
+  optimizeVersion?: number;
   optimizing?: boolean;
   onOptimize?: (customInstructions: string) => void;
 }) {
@@ -2065,10 +2075,16 @@ function formatBytes(n: number): string {
   }, [score, data, job]);
 
   useEffect(() => {
+    // Re-run whenever the dialog opens for an auto-analysis, and also every
+    // time `optimizeVersion` changes — this ensures clicking "Get a Higher
+    // ATS Score" always re-scores the just-optimized resume, even when the
+    // dialog was already open (in which case `open`/`autoAnalyze` alone
+    // wouldn't change and this effect would otherwise never re-fire).
     if (open && autoAnalyze) {
       runAnalysis();
     }
-  }, [open, autoAnalyze]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autoAnalyze, optimizeVersion]);
 
   const tone = useMemo(() => {
     const s = result?.score ?? 0;
