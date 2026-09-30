@@ -9,6 +9,7 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.63.5",
     "mammoth": "1.10.0",
     "pdfjs-dist": "4.10.38"
   },

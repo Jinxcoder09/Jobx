@@ -180,31 +180,46 @@ export default function Builder() {
   // debounced autosave
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(false);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  // Immediate save helper — persists the current draft right away (used by
+  // autosave debounce and by actions like AI optimization that must not wait).
+  const saveNow = useCallback((overrideData?: ResumeData) => {
+    const current = draftRef.current;
+    if (!current || !id) return;
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    dirtyRef.current = false;
+    update.mutate(
+      {
+        id,
+        data: {
+          title: current.title,
+          templateId: current.templateId,
+          theme: current.theme,
+          data: overrideData ?? current.data,
+        },
+      },
+      {
+        onSuccess: () => {
+          setSavedAt(Date.now());
+          dirtyRef.current = false;
+          qc.invalidateQueries({ queryKey: getGetResumeQueryKey(id) });
+        },
+        onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Save failed"),
+      },
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, qc]);
+
   useEffect(() => {
     if (!draft || !id) return;
     if (!dirtyRef.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      update.mutate(
-        {
-          id,
-          data: {
-            title: draft.title,
-            templateId: draft.templateId,
-            theme: draft.theme,
-            data: draft.data,
-          },
-        },
-        {
-          onSuccess: () => {
-            setSavedAt(Date.now());
-            dirtyRef.current = false;
-            qc.invalidateQueries({ queryKey: getGetResumeQueryKey(id) });
-          },
-          onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Save failed"),
-        },
-      );
-    }, 300);
+    saveTimer.current = setTimeout(() => saveNow(), 300);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
