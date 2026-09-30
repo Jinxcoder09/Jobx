@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -35,6 +36,24 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+    const ping = () => {
+      fetch(`${BASE}/api/healthz`)
+        .then((res) => {
+          if (!res.ok) console.warn("Wakeup ping status:", res.status);
+        })
+        .catch((e) => console.warn("Wakeup ping failed:", e));
+    };
+
+    // Trigger on startup/mount
+    ping();
+
+    // Ping every 14 minutes to keep backend container awake
+    const interval = setInterval(ping, 14 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>

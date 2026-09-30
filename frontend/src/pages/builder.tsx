@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,10 +8,12 @@ import {
   useListTemplates,
   useAiGenerateSummary,
   useAiImproveBullet,
+  useAiGenerateBullets,
   useAiSuggestSkills,
   useAiFixGrammar,
   useAiAtsScore,
   useAiParseResume,
+  useAiOptimizeResume,
   exportResumeAsPdf,
   exportResumeAsDocx,
   type Resume,
@@ -65,6 +67,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, parse } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 import { ResumeRender } from "@/templates/Render";
 import { SortableList, SortableSectionList } from "@/components/SortableList";
 import { RichText } from "@/components/RichText";
@@ -129,6 +135,7 @@ export default function Builder() {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [scoreOpen, setScoreOpen] = useState(false);
+  const [autoAnalyze, setAutoAnalyze] = useState(false);
   const [showPageGuides, setShowPageGuides] = useState(true);
   const [debugMode, setDebugMode] = useState(false);
 
@@ -204,7 +211,7 @@ export default function Builder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
 
-  function patchData(p: Partial<ResumeData>) {
+  const patchData = useCallback((p: Partial<ResumeData>) => {
     dirtyRef.current = true;
     setDraft((current) => {
       if (!current) return current;
@@ -213,7 +220,8 @@ export default function Builder() {
         data: sanitizeResumeData({ ...(current.data as ResumeData), ...p }),
       };
     });
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // setDraft and dirtyRef are both stable — no deps needed
   function patchTheme(p: Partial<Theme>) {
     dirtyRef.current = true;
     setDraft((current) => {
@@ -225,6 +233,28 @@ export default function Builder() {
     dirtyRef.current = true;
     setDraft((current) => (current ? { ...current, ...p } : current));
   }
+
+  const optimizeResume = useAiOptimizeResume();
+
+  const handleOptimizeResume = useCallback(async (customInstructions?: string) => {
+    if (!draft) return;
+    try {
+      const result = await optimizeResume.mutateAsync({
+        data: {
+          resume: draft.data,
+          layout: draft.theme?.layout || "single",
+          fontSize: draft.theme?.fontSize || 11,
+          customInstructions: customInstructions || undefined,
+        },
+      });
+      patchData(result.data);
+      setAutoAnalyze(true);
+      setScoreOpen(true);
+      toast.success("Resume optimized for ATS successfully!");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Optimization failed");
+    }
+  }, [draft, optimizeResume, patchData]);
 
   if (isLoading || !draft)
     return (
@@ -255,13 +285,18 @@ export default function Builder() {
         onTemplate={(v) => patchResume({ templateId: v })}
         onPatchTheme={patchTheme}
         onImportOpen={() => setImportOpen(true)}
-        onScoreOpen={() => setScoreOpen(true)}
+        onScoreOpen={() => {
+          setAutoAnalyze(false);
+          setScoreOpen(true);
+        }}
         onLoadSample={() => patchData(sampleData())}
         onPreview={() => window.open(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/preview/${draft.id}`, "_blank")}
         onExportPdf={() => exportResumeAsPdf(draft).catch((e) => toast.error(e.message))}
         onExportDocx={() => exportResumeAsDocx(draft).catch((e) => toast.error(e.message))}
         onBack={() => setLoc("/dashboard")}
         onReorderOpen={() => setReorderOpen(true)}
+        optimizing={optimizeResume.isPending}
+        onOptimize={handleOptimizeResume}
       />
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[224px_minmax(420px,520px)_1fr] min-h-0 relative">
         <SectionsSidebar
@@ -341,6 +376,9 @@ export default function Builder() {
         open={scoreOpen}
         onOpenChange={setScoreOpen}
         data={data}
+        autoAnalyze={autoAnalyze}
+        optimizing={optimizeResume.isPending}
+        onOptimize={handleOptimizeResume}
       />
 
       {/* Section Reorder Dialog (Mobile/Tablet only) */}
@@ -390,6 +428,8 @@ function TopBar({
   onExportDocx,
   onBack,
   onReorderOpen,
+  optimizing = false,
+  onOptimize,
 }: {
   draft: Resume;
   templates: { id: string; name: string }[];
@@ -410,6 +450,8 @@ function TopBar({
   onExportDocx: () => void;
   onBack: () => void;
   onReorderOpen: () => void;
+  optimizing?: boolean;
+  onOptimize?: () => void;
 }) {
   const theme = draft.theme as Theme;
   return (
@@ -536,6 +578,23 @@ function TopBar({
         <Button variant="ghost" className="gap-1.5 hidden lg:inline-flex" onClick={onScoreOpen}>
           <ListChecks className="size-4" /> ATS Score
         </Button>
+        {onOptimize && (
+          <Button
+            disabled={optimizing}
+            className="gap-1.5 hidden lg:inline-flex bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+            onClick={onOptimize}
+          >
+            {optimizing ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Optimizing…
+              </>
+            ) : (
+              <>
+                <Sparkles className="size-4 fill-white/20 animate-pulse" /> Get a Higher ATS Score
+              </>
+            )}
+          </Button>
+        )}
         <Button variant="ghost" className="gap-1.5 hidden lg:inline-flex" onClick={onImportOpen}>
           <Upload className="size-4" /> Import
         </Button>
@@ -560,6 +619,21 @@ function TopBar({
               <ListChecks className="size-4 mr-2" />
               ATS Score
             </DropdownMenuItem>
+            {onOptimize && (
+              <DropdownMenuItem onClick={onOptimize} disabled={optimizing}>
+                {optimizing ? (
+                  <>
+                    <Loader2 className="size-4 mr-2 animate-spin" />
+                    Optimizing…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4 mr-2 text-violet-600 fill-violet-600/20" />
+                    Get a Higher ATS Score
+                  </>
+                )}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={onImportOpen}>
               <Upload className="size-4 mr-2" />
               Import resume
@@ -726,7 +800,7 @@ function Editor({
         )}
 
         {active === "experience" && (
-          <ExperienceEditor data={data} setField={setField} />
+          <ExperienceEditor data={data} setField={setField} patchData={patchData} />
         )}
 
         {active === "education" && (
@@ -734,7 +808,7 @@ function Editor({
         )}
 
         {active === "projects" && (
-          <ProjectsEditor data={data} setField={setField} />
+          <ProjectsEditor data={data} setField={setField} patchData={patchData} />
         )}
 
         {active === "skills" && (
@@ -781,15 +855,81 @@ function FormField({ label, value, onChange, type = "text" }: { label: string; v
   );
 }
 
-function parseCommaList(value: string): string[] {
-  return value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+function DatePickerField({
+  label,
+  value,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  value?: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const selectedDate = useMemo(() => {
+    if (!value || value.toLowerCase() === "present") return undefined;
+    try {
+      const parsed = Date.parse(value);
+      if (!isNaN(parsed)) {
+        return new Date(parsed);
+      }
+      const d = parse(value, "MMM yyyy", new Date());
+      if (!isNaN(d.getTime())) return d;
+    } catch {
+      // fallback
+    }
+    return undefined;
+  }, [value]);
+
+  const handleSelect = (date: Date | undefined) => {
+    if (date) {
+      const formatted = format(date, "MMM yyyy");
+      onChange(formatted);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5 flex-1">
+      <Label>{label}</Label>
+      <div className="relative flex items-center">
+        <Input
+          type="text"
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="pr-10"
+        />
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={disabled}
+              className="absolute right-1 h-7 w-7 text-muted-foreground hover:text-foreground"
+            >
+              <CalendarIcon className="size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={handleSelect}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+    </div>
+  );
 }
 
-function CommaListInput({
-  value,
+function SkillsTagInput({
+  value = [],
   onChange,
   placeholder,
 }: {
@@ -797,24 +937,98 @@ function CommaListInput({
   onChange: (v: string[]) => void;
   placeholder?: string;
 }) {
-  const [text, setText] = useState((value || []).join(", "));
+  const [inputValue, setInputValue] = useState("");
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
 
-  useEffect(() => {
-    const next = (value || []).join(", ");
-    setText((current) => (parseCommaList(current).join(", ") === next ? current : next));
-  }, [value]);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const trimmed = inputValue.trim();
+      if (trimmed && !value.includes(trimmed)) {
+        onChange([...value, trimmed]);
+        setInputValue("");
+      }
+    }
+  };
+
+  const handleRemove = (indexToRemove: number) => {
+    onChange(value.filter((_, i) => i !== indexToRemove));
+  };
+
+  const startEditing = (index: number, currentVal: string) => {
+    setEditingIndex(index);
+    setEditValue(currentVal);
+  };
+
+  const saveEdit = (indexToSave: number) => {
+    const trimmed = editValue.trim();
+    if (!trimmed) {
+      handleRemove(indexToSave);
+    } else {
+      onChange(value.map((v, i) => (i === indexToSave ? trimmed : v)));
+    }
+    setEditingIndex(null);
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveEdit(index);
+    } else if (e.key === "Escape") {
+      setEditingIndex(null);
+    }
+  };
 
   return (
-    <Input
-      className="mt-1"
-      placeholder={placeholder}
-      value={text}
-      onChange={(e) => {
-        const next = e.target.value;
-        setText(next);
-        onChange(parseCommaList(next));
-      }}
-    />
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[46px] bg-background border-input focus-within:ring-1 focus-within:ring-ring focus-within:border-ring">
+        {value.map((skill, idx) => {
+          if (editingIndex === idx) {
+            return (
+              <Input
+                key={idx}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={() => saveEdit(idx)}
+                onKeyDown={(e) => handleEditKeyDown(e, idx)}
+                autoFocus
+                className="h-6 px-1.5 py-0.5 text-xs w-24 bg-muted border-none outline-none focus-visible:ring-0"
+              />
+            );
+          }
+          return (
+            <Badge
+              key={idx}
+              variant="secondary"
+              className="cursor-pointer select-none gap-1 pl-2.5 pr-1.5 py-0.5 text-xs hover:bg-muted-foreground/10 group transition"
+            >
+              <span onClick={() => startEditing(idx, skill)} className="flex-1">
+                {skill}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleRemove(idx)}
+                className="text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-full p-0.5 -mr-0.5 transition"
+              >
+                <Plus className="size-3 rotate-45" />
+              </button>
+            </Badge>
+          );
+        })}
+        <input
+          type="text"
+          placeholder={value.length === 0 ? (placeholder || "Type and press Enter...") : "Add..."}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="flex-1 min-w-[120px] bg-transparent outline-none border-none text-sm p-0.5 h-6 text-foreground placeholder:text-muted-foreground"
+        />
+      </div>
+      <p className="text-[10px] text-muted-foreground italic">
+        Press Enter to add. Click a badge to edit, or 'x' to delete.
+      </p>
+    </div>
   );
 }
 
@@ -885,11 +1099,103 @@ function SummaryEditor({ data, setField }: { data: ResumeData; setField: <K exte
   );
 }
 
-function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
-  const items = data.experience || [];
+function ExperienceBulletRow({
+  bullet,
+  bulletIndex,
+  itemIndex,
+  itemId,
+  role,
+  company,
+  itemsRef,
+  patchData,
+}: {
+  bullet: string;
+  bulletIndex: number;
+  itemIndex: number;
+  itemId: string;
+  role: string;
+  company: string;
+  itemsRef: React.MutableRefObject<ExperienceItem[]>;
+  patchData: (p: Partial<ResumeData>) => void;
+}) {
   const improve = useAiImproveBullet();
+  // Always keep a fresh ref to patchData so the async handler never closes over a stale version
+  const patchDataRef = useRef(patchData);
+  patchDataRef.current = patchData;
+
+  return (
+    <div className="flex gap-2">
+      <Textarea
+        rows={2}
+        data-experience-bullet={`${itemId}:${bulletIndex}`}
+        placeholder="Describe the result, metric, or contribution"
+        value={bullet}
+        onChange={(e) => {
+          const val = e.target.value;
+          patchDataRef.current({
+            experience: itemsRef.current.map((it, i) =>
+              i === itemIndex
+                ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? val : x)) }
+                : it
+            ),
+          });
+        }}
+      />
+      <div className="flex flex-col gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Improve with AI"
+          disabled={improve.isPending}
+          onClick={async () => {
+            try {
+              const currentText = (itemsRef.current[itemIndex]?.bullets || [])[bulletIndex] || bullet || "";
+              const out = await improve.mutateAsync({
+                data: { text: currentText, context: `${role} at ${company}` },
+              });
+              // Use ref to guarantee we have the latest patchData after the await
+              patchDataRef.current({
+                experience: itemsRef.current.map((it, i) =>
+                  i === itemIndex
+                    ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? out.text : x)) }
+                    : it
+                ),
+              });
+              toast.success("Bullet improved");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "AI failed");
+            }
+          }}
+        >
+          {improve.isPending ? <Loader2 className="size-4 animate-spin text-primary" /> : <Sparkles className="size-4 text-primary" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            patchDataRef.current({
+              experience: itemsRef.current.map((it, i) =>
+                i === itemIndex
+                  ? { ...it, bullets: (it.bullets || []).filter((_, j) => j !== bulletIndex) }
+                  : it
+              ),
+            });
+          }}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ExperienceEditor({ data, setField, patchData }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void; patchData: (p: Partial<ResumeData>) => void }) {
+  const items = data.experience || [];
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const generate = useAiGenerateBullets();
   function update(idx: number, patch: Partial<ExperienceItem>) {
-    const next = items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
+    const next = itemsRef.current.map((it, i) => (i === idx ? { ...it, ...patch } : it));
     setField("experience", next);
   }
   function add() {
@@ -932,8 +1238,8 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
             <Row>
               <FormField label="Location" value={it.location} onChange={(v) => update(idx, { location: v })} />
               <div className="grid grid-cols-2 gap-2">
-                <FormField label="Start" value={it.startDate} onChange={(v) => update(idx, { startDate: v })} />
-                <FormField label="End" value={it.current ? "Present" : it.endDate} onChange={(v) => update(idx, { endDate: v })} />
+                <DatePickerField label="Start" value={it.startDate} onChange={(v) => update(idx, { startDate: v })} />
+                <DatePickerField label="End" value={it.current ? "Present" : it.endDate} onChange={(v) => update(idx, { endDate: v })} disabled={it.current} />
               </div>
             </Row>
             <div className="flex items-center gap-2 mt-1">
@@ -944,56 +1250,51 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
               <Label>Bullet points</Label>
               <div className="space-y-2 mt-1">
                 {(it.bullets || []).map((b, bi) => (
-                  <div key={bi} className="flex gap-2">
-                    <Textarea
-                      rows={2}
-                      data-experience-bullet={`${it.id || idx}:${bi}`}
-                      placeholder="Describe the result, metric, or contribution"
-                      value={b}
-                      onChange={(e) =>
-                        update(idx, { bullets: (it.bullets || []).map((x, i) => (i === bi ? e.target.value : x)) })
-                      }
-                    />
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Improve with AI"
-                        onClick={async () => {
-                          if (!b.trim()) return;
-                          try {
-                            const out = await improve.mutateAsync({
-                              data: { text: b, context: `${it.role} at ${it.company}` },
-                            });
-                            update(idx, {
-                              bullets: (it.bullets || []).map((x, i) => (i === bi ? out.text : x)),
-                            });
-                          } catch (e) {
-                            toast.error(e instanceof Error ? e.message : "AI failed");
-                          }
-                        }}
-                      >
-                        <Sparkles className="size-4 text-primary" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          update(idx, { bullets: (it.bullets || []).filter((_, i) => i !== bi) })
-                        }
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  <ExperienceBulletRow
+                    key={`${it.id || idx}-${bi}`}
+                    bullet={b}
+                    bulletIndex={bi}
+                    itemIndex={idx}
+                    itemId={it.id || String(idx)}
+                    role={it.role || ""}
+                    company={it.company || ""}
+                    itemsRef={itemsRef}
+                    patchData={patchData}
+                  />
                 ))}
-                <Button
-                  variant="ghost"
-                  className="gap-1.5"
-                  onClick={() => addBullet(idx, it)}
-                >
-                  <Plus className="size-4" /> Add bullet
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    className="gap-1.5"
+                    onClick={() => addBullet(idx, it)}
+                  >
+                    <Plus className="size-4" /> Add bullet
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={generate.isPending || !it.role}
+                    onClick={async () => {
+                      try {
+                        const out = await generate.mutateAsync({
+                          data: {
+                            role: it.role,
+                            company: it.company,
+                            count: 4,
+                          },
+                        });
+                        const merged = Array.from(new Set([...(it.bullets || []), ...out.bullets]));
+                        update(idx, { bullets: merged });
+                        toast.success(`${out.bullets.length} bullets generated for "${it.role}"`);
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "AI failed");
+                      }
+                    }}
+                  >
+                    <Sparkles className="size-4" /> Generate with AI
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>
@@ -1008,6 +1309,7 @@ function ExperienceEditor({ data, setField }: { data: ResumeData; setField: <K e
 
 function EducationEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
   const items = data.education || [];
+  const improve = useAiImproveBullet();
   function update(idx: number, patch: Partial<EducationItem>) {
     setField("education", items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
@@ -1032,12 +1334,38 @@ function EducationEditor({ data, setField }: { data: ResumeData; setField: <K ex
               <FormField label="Location" value={it.location} onChange={(v) => update(idx, { location: v })} />
             </Row>
             <Row>
-              <FormField label="Start" value={it.startDate} onChange={(v) => update(idx, { startDate: v })} />
-              <FormField label="End" value={it.endDate} onChange={(v) => update(idx, { endDate: v })} />
+              <DatePickerField label="Start" value={it.startDate} onChange={(v) => update(idx, { startDate: v })} />
+              <DatePickerField label="End" value={it.endDate} onChange={(v) => update(idx, { endDate: v })} />
             </Row>
             <FormField label="GPA" value={it.gpa} onChange={(v) => update(idx, { gpa: v })} />
-            <div className="space-y-1 mt-2">
-              <Label>Notes</Label>
+            <div className="space-y-1.5 mt-2">
+              <div className="flex items-center justify-between">
+                <Label>Notes</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs text-primary hover:bg-primary/10"
+                  disabled={improve.isPending}
+                  onClick={async () => {
+                    try {
+                      const out = await improve.mutateAsync({
+                        data: {
+                          text: it.description || "",
+                          context: `education: school=${it.school || ""}, degree=${it.degree || ""}, field=${it.field || ""}`
+                        }
+                      });
+                      update(idx, { description: out.text });
+                      toast.success(it.description ? "Notes improved" : "Notes generated");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "AI failed");
+                    }
+                  }}
+                >
+                  {improve.isPending ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                  <span>{it.description ? "Improve with AI" : "Generate with AI"}</span>
+                </Button>
+              </div>
               <Textarea rows={2} value={it.description || ""} onChange={(e) => update(idx, { description: e.target.value })} />
             </div>
           </Card>
@@ -1054,11 +1382,102 @@ function EducationEditor({ data, setField }: { data: ResumeData; setField: <K ex
   );
 }
 
-function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void }) {
+function ProjectBulletRow({
+  bullet,
+  bulletIndex,
+  itemIndex,
+  itemId,
+  name,
+  itemsRef,
+  patchData,
+}: {
+  bullet: string;
+  bulletIndex: number;
+  itemIndex: number;
+  itemId: string;
+  name: string;
+  itemsRef: React.MutableRefObject<ProjectItem[]>;
+  patchData: (p: Partial<ResumeData>) => void;
+}) {
+  const improve = useAiImproveBullet();
+  // Always keep a fresh ref to patchData so the async handler never closes over a stale version
+  const patchDataRef = useRef(patchData);
+  patchDataRef.current = patchData;
+
+  return (
+    <div className="flex gap-2">
+      <Textarea
+        rows={2}
+        data-project-bullet={`${itemId}:${bulletIndex}`}
+        placeholder="Describe the result, metric, or contribution"
+        value={bullet}
+        onChange={(e) => {
+          const val = e.target.value;
+          patchDataRef.current({
+            projects: itemsRef.current.map((it, i) =>
+              i === itemIndex
+                ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? val : x)) }
+                : it
+            ),
+          });
+        }}
+      />
+      <div className="flex flex-col gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Improve with AI"
+          disabled={improve.isPending}
+          onClick={async () => {
+            try {
+              const currentText = (itemsRef.current[itemIndex]?.bullets || [])[bulletIndex] || bullet || itemsRef.current[itemIndex]?.description || "";
+              const out = await improve.mutateAsync({
+                data: { text: currentText, context: `${name} project` },
+              });
+              // Use ref to guarantee we have the latest patchData after the await
+              patchDataRef.current({
+                projects: itemsRef.current.map((it, i) =>
+                  i === itemIndex
+                    ? { ...it, bullets: (it.bullets || []).map((x, j) => (j === bulletIndex ? out.text : x)) }
+                    : it
+                ),
+              });
+              toast.success("Bullet improved");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "AI failed");
+            }
+          }}
+        >
+          {improve.isPending ? <Loader2 className="size-4 animate-spin text-primary" /> : <Sparkles className="size-4 text-primary" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            patchDataRef.current({
+              projects: itemsRef.current.map((it, i) =>
+                i === itemIndex
+                  ? { ...it, bullets: (it.bullets || []).filter((_, j) => j !== bulletIndex) }
+                  : it
+              ),
+            });
+          }}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ProjectsEditor({ data, setField, patchData }: { data: ResumeData; setField: <K extends keyof ResumeData>(k: K, v: ResumeData[K]) => void; patchData: (p: Partial<ResumeData>) => void }) {
   const items = data.projects || [];
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const generate = useAiGenerateBullets();
   const improve = useAiImproveBullet();
   function update(idx: number, patch: Partial<ProjectItem>) {
-    setField("projects", items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+    setField("projects", itemsRef.current.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
   function addBullet(idx: number, project: ProjectItem) {
     const bullets = project.bullets || [];
@@ -1088,63 +1507,86 @@ function ProjectsEditor({ data, setField }: { data: ResumeData; setField: <K ext
               <FormField label="Name" value={it.name} onChange={(v) => update(idx, { name: v })} />
               <FormField label="Link" value={it.link} onChange={(v) => update(idx, { link: v })} />
             </Row>
-            <div className="space-y-1 mt-2">
-              <Label>Description</Label>
+            <div className="space-y-1.5 mt-2">
+              <div className="flex items-center justify-between">
+                <Label>Description</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs text-primary hover:bg-primary/10"
+                  disabled={improve.isPending}
+                  onClick={async () => {
+                    try {
+                      const out = await improve.mutateAsync({
+                        data: {
+                          text: it.description || "",
+                          context: `project: name=${it.name || ""}, technologies=${(it.technologies || []).join(", ")}`
+                        }
+                      });
+                      update(idx, { description: out.text });
+                      toast.success(it.description ? "Description improved" : "Description generated");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "AI failed");
+                    }
+                  }}
+                >
+                  {improve.isPending ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                  <span>{it.description ? "Improve with AI" : "Generate with AI"}</span>
+                </Button>
+              </div>
               <Textarea rows={2} value={it.description || ""} onChange={(e) => update(idx, { description: e.target.value })} />
             </div>
             <div className="mt-3">
               <Label>Bullets</Label>
               <div className="space-y-2 mt-1">
                 {(it.bullets || []).map((b, bi) => (
-                  <div key={bi} className="flex gap-2">
-                    <Textarea
-                      rows={2}
-                      data-project-bullet={`${it.id || idx}:${bi}`}
-                      placeholder="Describe the result, metric, or contribution"
-                      value={b}
-                      onChange={(e) => update(idx, { bullets: (it.bullets || []).map((x, i) => (i === bi ? e.target.value : x)) })}
-                    />
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Improve with AI"
-                        onClick={async () => {
-                          if (!b.trim()) return;
-                          try {
-                            const out = await improve.mutateAsync({
-                              data: { text: b, context: `${it.name} project` },
-                            });
-                            update(idx, {
-                              bullets: (it.bullets || []).map((x, i) => (i === bi ? out.text : x)),
-                            });
-                          } catch (e) {
-                            toast.error(e instanceof Error ? e.message : "AI failed");
-                          }
-                        }}
-                      >
-                        <Sparkles className="size-4 text-primary" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          update(idx, { bullets: (it.bullets || []).filter((_, i) => i !== bi) })
-                        }
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  <ProjectBulletRow
+                    key={`${it.id || idx}-${bi}`}
+                    bullet={b}
+                    bulletIndex={bi}
+                    itemIndex={idx}
+                    itemId={it.id || String(idx)}
+                    name={it.name || ""}
+                    itemsRef={itemsRef}
+                    patchData={patchData}
+                  />
                 ))}
-                <Button variant="ghost" className="gap-1.5" onClick={() => addBullet(idx, it)}>
-                  <Plus className="size-4" /> Add bullet
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="ghost" className="gap-1.5" onClick={() => addBullet(idx, it)}>
+                    <Plus className="size-4" /> Add bullet
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={generate.isPending || !it.name}
+                    onClick={async () => {
+                      try {
+                        const out = await generate.mutateAsync({
+                          data: {
+                            role: it.name,
+                            description: it.description,
+                            technologies: it.technologies,
+                            count: 4,
+                          },
+                        });
+                        const merged = Array.from(new Set([...(it.bullets || []), ...out.bullets]));
+                        update(idx, { bullets: merged });
+                        toast.success(`${out.bullets.length} bullets generated for "${it.name}"`);
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "AI failed");
+                      }
+                    }}
+                  >
+                    <Sparkles className="size-4" /> Generate with AI
+                  </Button>
+                </div>
               </div>
             </div>
-            <div className="mt-3">
-              <Label>Technologies (comma separated)</Label>
-              <CommaListInput
+            <div className="mt-3 space-y-1.5">
+              <Label>Technologies</Label>
+              <SkillsTagInput
                 placeholder="e.g. Python, FastAPI, OpenAI"
                 value={it.technologies || []}
                 onChange={(technologies) => update(idx, { technologies })}
@@ -1243,17 +1685,12 @@ function SkillsEditor({ data, setField }: { data: ResumeData; setField: <K exten
                 <Sparkles className="size-4" /> Suggest
               </Button>
             </div>
-            <div className="mt-2">
-              <Label>Skills (comma separated)</Label>
-              <CommaListInput
+            <div className="mt-3 space-y-1.5">
+              <Label>Skills</Label>
+              <SkillsTagInput
                 value={it.items || []}
                 onChange={(items) => update(idx, { items })}
               />
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {(it.items || []).map((s, i) => (
-                  <Badge key={i} variant="secondary">{s}</Badge>
-                ))}
-              </div>
             </div>
           </Card>
         )}
@@ -1278,6 +1715,7 @@ function SimpleEditor({
   items: SimpleItem[];
   onChange: (v: SimpleItem[]) => void;
 }) {
+  const improve = useAiImproveBullet();
   function update(idx: number, patch: Partial<SimpleItem>) {
     onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
@@ -1298,11 +1736,37 @@ function SimpleEditor({
               <FormField label="Subtitle" value={it.subtitle} onChange={(v) => update(idx, { subtitle: v })} />
             </Row>
             <Row>
-              <FormField label="Date" value={it.date} onChange={(v) => update(idx, { date: v })} />
+              <DatePickerField label="Date" value={it.date} onChange={(v) => update(idx, { date: v })} />
               <div />
             </Row>
-            <div className="space-y-1 mt-2">
-              <Label>Description</Label>
+            <div className="space-y-1.5 mt-2">
+              <div className="flex items-center justify-between">
+                <Label>Description</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-xs text-primary hover:bg-primary/10"
+                  disabled={improve.isPending}
+                  onClick={async () => {
+                    try {
+                      const out = await improve.mutateAsync({
+                        data: {
+                          text: it.description || "",
+                          context: `${label.toLowerCase()}: title=${it.title || ""}, subtitle=${it.subtitle || ""}`
+                        }
+                      });
+                      update(idx, { description: out.text });
+                      toast.success(it.description ? "Description improved" : "Description generated");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "AI failed");
+                    }
+                  }}
+                >
+                  {improve.isPending ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                  <span>{it.description ? "Improve with AI" : "Generate with AI"}</span>
+                </Button>
+              </div>
               <Textarea rows={2} value={it.description || ""} onChange={(e) => update(idx, { description: e.target.value })} />
             </div>
           </Card>
@@ -1565,12 +2029,40 @@ function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
-}
-
-function AtsScoreDialog({ open, onOpenChange, data }: { open: boolean; onOpenChange: (v: boolean) => void; data: ResumeData }) {
+}function AtsScoreDialog({
+  open,
+  onOpenChange,
+  data,
+  autoAnalyze = false,
+  optimizing = false,
+  onOptimize,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  data: ResumeData;
+  autoAnalyze?: boolean;
+  optimizing?: boolean;
+  onOptimize?: (customInstructions: string) => void;
+}) {
   const score = useAiAtsScore();
   const [job, setJob] = useState("");
+  const [customInstructions, setCustomInstructions] = useState("");
   const [result, setResult] = useState<{ score: number; strengths: string[]; improvements: string[] } | null>(null);
+
+  const runAnalysis = useCallback(async () => {
+    try {
+      const out = await score.mutateAsync({ data: { resume: data, jobDescription: job || undefined } });
+      setResult(out);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to analyze score");
+    }
+  }, [score, data, job]);
+
+  useEffect(() => {
+    if (open && autoAnalyze) {
+      runAnalysis();
+    }
+  }, [open, autoAnalyze]);
 
   const tone = useMemo(() => {
     const s = result?.score ?? 0;
@@ -1588,20 +2080,42 @@ function AtsScoreDialog({ open, onOpenChange, data }: { open: boolean; onOpenCha
         <div className="space-y-3">
           <Label>Job description (optional)</Label>
           <Textarea rows={4} value={job} onChange={(e) => setJob(e.target.value)} placeholder="Paste a job description for a tailored score." />
-          <Button
-            disabled={score.isPending}
-            className="gap-1.5"
-            onClick={async () => {
-              try {
-                const out = await score.mutateAsync({ data: { resume: data, jobDescription: job || undefined } });
-                setResult(out);
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : "Failed");
-              }
-            }}
-          >
-            <Sparkles className="size-4" /> {score.isPending ? "Analyzing…" : "Analyze"}
-          </Button>
+          <Label>Custom AI instructions (optional)</Label>
+          <Textarea rows={2} value={customInstructions} onChange={(e) => setCustomInstructions(e.target.value)} placeholder="E.g., 'Make it focus on Web Design', 'Make tone more professional'." />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={score.isPending || optimizing}
+              className="gap-1.5"
+              onClick={runAnalysis}
+            >
+              {score.isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Analyzing…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-4" /> Analyze
+                </>
+              )}
+            </Button>
+            {onOptimize && (
+              <Button
+                disabled={score.isPending || optimizing}
+                className="gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+                onClick={() => onOptimize(customInstructions)}
+              >
+                {optimizing ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Optimizing…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4 fill-white/20 animate-pulse" /> Get a Higher ATS Score
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
           {result && (
             <div className="pt-2">
               <div className={`text-5xl font-bold ${tone}`}>{result.score}<span className="text-base text-muted-foreground">/100</span></div>

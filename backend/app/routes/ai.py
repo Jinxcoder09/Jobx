@@ -15,6 +15,8 @@ from fastapi import APIRouter
 
 from ..groq_client import groq_chat, extract_json
 from ..models import (
+    AiBulletsRequest,
+    AiBulletsResponse,
     AiGrammarRequest,
     AiImproveRequest,
     AiParseRequest,
@@ -25,6 +27,9 @@ from ..models import (
     AiSkillsResponse,
     AiSummaryRequest,
     AiTextResponse,
+    AiOptimizeRequest,
+    AiOptimizeResponse,
+    ResumeData,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,8 +67,9 @@ async def ai_generate_summary(body: AiSummaryRequest) -> dict:
             {
                 "role": "system",
                 "content": (
-                    "You write concise, ATS-optimized resume summaries "
-                    "(2-4 sentences, third person omitted, no clichés, strong verbs)."
+                    "You write professional, ATS-optimized resume summaries "
+                    "(3-4 sentences, approx 45-60 words total, third person omitted, no clichés, strong verbs) "
+                    "so that it fills exactly 3 to 4 lines on the resume."
                 ),
             },
             {
@@ -87,25 +93,127 @@ async def ai_generate_summary(body: AiSummaryRequest) -> dict:
 
 @router.post("/ai/improve", response_model=AiTextResponse)
 async def ai_improve_bullet(body: AiImproveRequest) -> dict:
+    context_lower = (body.context or "").lower()
+    
+    if "education" in context_lower:
+        if not body.text.strip():
+            system_content = (
+                "You are a resume writer. Write a concise, professional description or notes for an education entry "
+                "based on the context provided (e.g. school, degree, field). Focus on coursework, honors, or academic activities. "
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the description, no preface."
+            )
+        else:
+            system_content = (
+                "You are a resume writer. Refine and polish the given education notes/description. "
+                "Make it sound professional, focusing on academic achievement, coursework, honors, or activities. "
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the polished description, no preface."
+            )
+    elif "project" in context_lower:
+        if not body.text.strip():
+            system_content = (
+                "You are a resume writer. Write a concise, professional description for a project entry "
+                "based on the context provided (e.g. project name, technologies). Highlight technical challenges, solutions, or purpose. "
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the description, no preface."
+            )
+        else:
+            system_content = (
+                "You are a resume writer. Refine and polish the given project description. "
+                "Ensure it highlights technical challenges, solutions, and impact. Use professional, active language. "
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the polished description, no preface."
+            )
+    elif any(x in context_lower for x in ["certification", "achievement", "custom"]):
+        if not body.text.strip():
+            system_content = (
+                "You are a resume writer. Write a concise, professional description for a resume entry "
+                "based on the context provided (e.g. title, subtitle). Focus on scope or impact. "
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the description, no preface."
+            )
+        else:
+            system_content = (
+                "You are a resume writer. Refine and polish the given description for a certification, "
+                "achievement, or custom section item. Make it professional and concise. "
+                "Keep it between 25 and 35 words (2 to 3 lines) so that it fills the space properly. Return only the polished description, no preface."
+            )
+    else:
+        system_content = (
+            "You are a resume bullet point generator. Given a rough description "
+            "or query, generate a polished resume bullet point. Lead with a strong "
+            "action verb, quantify impact when reasonable, keep between 15 and 19 words "
+            "(approx. 110-135 characters) so that the line is completely filled but fits on a single line on the resume layout, "
+            "no first person, no buzzwords. Return only the bullet point, no preface."
+        )
+
     text = await groq_chat(
         [
             {
                 "role": "system",
-                "content": (
-                    "Rewrite resume bullet points: lead with a strong action verb, "
-                    "quantify impact when reasonable, keep under 22 words, no first "
-                    "person, no buzzwords. Return only the rewritten bullet, no preface."
-                ),
+                "content": system_content,
             },
             {
                 "role": "user",
-                "content": f"Context: {body.context or 'general'}\nOriginal: {body.text}",
+                "content": f"Context: {body.context or 'general'}\nDescription: {body.text}",
             },
         ],
         temperature=0.5,
         max_tokens=120,
     )
     return {"text": text}
+
+
+# ─── /ai/bullets ─────────────────────────────────────────────────────────────
+
+@router.post("/ai/bullets", response_model=AiBulletsResponse)
+async def ai_generate_bullets(body: AiBulletsRequest) -> dict:
+    parts = []
+    if body.role:
+        parts.append(f"Role: {body.role}")
+    if body.company:
+        parts.append(f"Company: {body.company}")
+    if body.description:
+        parts.append(f"Description: {body.description}")
+    if body.technologies:
+        parts.append(f"Technologies: {', '.join(body.technologies)}")
+
+    context_str = "\n".join(parts) if parts else "General experience"
+
+    raw = await groq_chat(
+        [
+            {
+                "role": "system",
+                "content": (
+                    f"Generate {body.count or 4} resume bullet points. "
+                    "Each bullet: lead with a strong action verb, quantify impact, "
+                    "keep between 15 and 19 words (approx. 110-135 characters) so that the line is completely filled but fits on a single line on the resume layout, "
+                    "no first person, no buzzwords. "
+                    'Return STRICT JSON: {{"bullets":["bullet1","bullet2",...]}}'
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"{context_str}\n\n"
+                    "Generate achievement-focused bullet points for this experience."
+                ),
+            },
+        ],
+        temperature=0.5,
+        json_mode=True,
+        max_tokens=600,
+    )
+
+    bullets: list[str] = []
+    parsed = extract_json(raw)
+    if parsed and isinstance(parsed.get("bullets"), list):
+        bullets = [s.strip() for s in parsed["bullets"] if isinstance(s, str) and s.strip()]
+    else:
+        import re
+        bullets = [
+            re.sub(r'^[-*"\s]+|["\s]+$', "", s)
+            for s in re.split(r"[,\n]", raw)
+            if s.strip()
+        ][:body.count or 4]
+
+    return {"bullets": bullets}
 
 
 # ─── /ai/skills ──────────────────────────────────────────────────────────────
@@ -187,9 +295,14 @@ async def ai_ats_score(body: AiScoreRequest) -> dict:
                 {
                     "role": "system",
                     "content": (
-                        'You are an ATS reviewer. Reply with one JSON object only, no markdown: '
+                        "You are a strict, hyper-critical ATS (Applicant Tracking System) reviewer and hiring manager. "
+                        "You must evaluate the resume objectively and grade it strictly. "
+                        "A typical resume has many areas of improvement; do not be overly generous. "
+                        "Rate the resume on a scale of 0-100. "
+                        "Most average resumes should score between 40 and 70. Only truly exceptional, highly-optimized resumes with strong keyword alignment and extensive quantified metrics should score above 80. "
+                        "Reply with one JSON object only, no markdown: "
                         '{"score": <0-100 integer>, "strengths": ["..."], "improvements": ["..."]}. '
-                        "3-6 items per array. Be specific and actionable."
+                        "Provide 3-6 specific, actionable, and critical items per array. Focus on missing keywords, weak verbs, lack of numbers/metrics, and formatting issues."
                     ),
                 },
                 {
@@ -270,6 +383,210 @@ async def ai_parse_resume(body: AiParseRequest) -> dict:
         return {"data": {"summary": text[:1000]}}
 
     return {"data": _normalize_parsed(parsed)}
+
+
+def calculate_line_chars(layout: str, font_size: float) -> int:
+    base_chars = 90 if layout == "single" else 45
+    # Smaller font size = more chars per line, larger = fewer
+    scale_factor = 11.0 / max(7.0, font_size)
+    return round(base_chars * scale_factor)
+
+
+@router.post("/ai/optimize-resume", response_model=AiOptimizeResponse)
+async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
+    import json
+
+    resume_dict = body.resume.model_dump()
+    resume_json = json.dumps(resume_dict)
+
+    layout = body.layout or "single"
+    font_size = body.fontSize or 11.0
+
+    # Calculate target character line length in real-time
+    L = calculate_line_chars(layout, font_size)
+
+    bullet_min = L - 10
+    bullet_max = L
+    desc_min = 2 * L - 15
+    desc_max = 3 * L
+
+    bullet_instruction = (
+        f"4. Strict single-line bullet points: Every bullet point in experience and projects lists MUST be exactly single-lined, "
+        f"completely filling the line width to cover the full length. To achieve this, each bullet point MUST be between {bullet_min} and {bullet_max} characters long. "
+        f"Do not write fewer than {bullet_min} characters (leaves blank gaps) and do not exceed {bullet_max} characters (causes wrapping onto a second line)."
+    )
+    desc_instruction = (
+        f"5. Strict 2 to 3 lines for descriptions: All descriptions (including project descriptions, "
+        f"education descriptions, certifications, achievements, and custom item descriptions) must take exactly 2 to 3 lines on the resume. "
+        f"To achieve this, each description MUST be between {desc_min} and {desc_max} characters long."
+    )
+    summary_instruction = (
+        f"6. Professional 2 to 3 lines summary: The resume summary must take exactly 2 to 3 lines on the resume. "
+        f"To achieve this, the summary MUST be between {desc_min} and {desc_max} characters long."
+    )
+
+    custom_guidelines = ""
+    if body.customInstructions and body.customInstructions.strip():
+        custom_guidelines = (
+            f"\n9. User's custom guidelines (Adhere to this strictly):\n"
+            f"{body.customInstructions.strip()}\n"
+        )
+
+    system_prompt = (
+        "You are an expert resume writer and ATS optimization engine. Your goal is to maximize the ATS score of the resume. "
+        "You must return a STRICT JSON object representing the optimized resume data. "
+        "The returned JSON must have the EXACT same structure and keys as the input JSON, preserving all IDs (e.g. 'id') and personal details. "
+        "\n"
+        "Apply these specific optimizations to the content:\n"
+        "1. Remove repeating overused verbs and words: You must ensure that action verbs (like 'led', 'managed', 'worked', 'developed', 'engineered', 'designed') and key terms are not repeated frequently across different bullet points or sections. Every detail and bullet point should be unique. Use a highly diverse vocabulary of strong, active verbs (e.g., 'spearheaded', 'orchestrated', 'pioneered', 'championed', 'formulated', 'streamlined') so each accomplishment is distinct and fresh.\n"
+        "2. Quantify achievements: Review every bullet point, project description, and achievement. If a bullet or description lacks numbers or metrics, inject realistic, professional metrics (e.g., percentages, dollar amounts, time saved, team sizes, scale numbers like 'boosted performance by 24%', 'saved $12k annually', 'collaborated with a 6-person team'). Make them sound natural and contextually appropriate.\n"
+        "3. Standardize dates: Convert all dates (e.g. in experience, education, certifications, achievements, custom sections) to a clean 'Month Year' format (e.g., 'Jun 2023', 'Dec 2021', 'Present'). If a date is empty or says 'Present' / 'Current', leave it as is.\n"
+        f"{bullet_instruction}\n"
+        f"{desc_instruction}\n"
+        f"{summary_instruction}\n"
+        "7. Keep personal info (fullName, email, phone, location, website, linkedin, github, photoUrl), template preferences, and layout structure completely unchanged.\n"
+        "8. Preserve the exact value of all 'id' fields so React rendering keys and order are maintained.\n"
+        f"{custom_guidelines}"
+        "\n"
+        "Return ONLY the raw JSON object matching the input structure, with no markdown formatting, no code block backticks, and no conversational text."
+    )
+
+    try:
+        raw = await groq_chat(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Input Resume JSON:\n{resume_json}"},
+            ],
+            temperature=0.3,
+            json_mode=True,
+            max_tokens=4000,
+        )
+        parsed = extract_json(raw)
+        if not parsed or not isinstance(parsed, dict):
+            raise ValueError("Groq returned invalid or empty JSON")
+
+        optimized_data = _merge_optimized_data(resume_dict, parsed)
+        return {"data": ResumeData(**optimized_data)}
+    except Exception as e:
+        logger.warning("Resume optimization failed, falling back to original: %s", e)
+        return {"data": body.resume}
+
+
+def _merge_optimized_data(original: dict, optimized: dict) -> dict:
+    result = original.copy()
+
+    # Update summary
+    if "summary" in optimized and isinstance(optimized["summary"], str):
+        result["summary"] = optimized["summary"]
+
+    # Helper to merge items in lists by ID
+    def merge_list_by_id(orig_list: list, opt_list: list, fields_to_copy: list[str], list_fields: dict[str, list] = None) -> list:
+        if not isinstance(orig_list, list) or not isinstance(opt_list, list):
+            return orig_list
+        opt_map = {item.get("id"): item for item in opt_list if isinstance(item, dict) and item.get("id")}
+        new_list = []
+        for orig_item in orig_list:
+            if not isinstance(orig_item, dict):
+                new_list.append(orig_item)
+                continue
+            item_id = orig_item.get("id")
+            opt_item = opt_map.get(item_id)
+            if opt_item:
+                merged_item = orig_item.copy()
+                for field in fields_to_copy:
+                    if field in opt_item:
+                        merged_item[field] = opt_item[field]
+                if list_fields:
+                    for field in list_fields.keys():
+                        if field in opt_item and isinstance(opt_item[field], list):
+                            merged_item[field] = opt_item[field]
+                new_list.append(merged_item)
+            else:
+                new_list.append(orig_item)
+        return new_list
+
+    # Experience
+    result["experience"] = merge_list_by_id(
+        original.get("experience"),
+        optimized.get("experience"),
+        ["role", "company", "location", "startDate", "endDate"],
+        {"bullets": []}
+    )
+
+    # Education
+    result["education"] = merge_list_by_id(
+        original.get("education"),
+        optimized.get("education"),
+        ["school", "degree", "field", "location", "startDate", "endDate", "gpa", "description"]
+    )
+
+    # Projects
+    result["projects"] = merge_list_by_id(
+        original.get("projects"),
+        optimized.get("projects"),
+        ["name", "link", "description"],
+        {"bullets": [], "technologies": []}
+    )
+
+    # Skills
+    result["skills"] = merge_list_by_id(
+        original.get("skills"),
+        optimized.get("skills"),
+        ["category"],
+        {"items": []}
+    )
+
+    # Certifications
+    result["certifications"] = merge_list_by_id(
+        original.get("certifications"),
+        optimized.get("certifications"),
+        ["title", "subtitle", "date", "description"]
+    )
+
+    # Achievements
+    result["achievements"] = merge_list_by_id(
+        original.get("achievements"),
+        optimized.get("achievements"),
+        ["title", "subtitle", "date", "description"]
+    )
+
+    # Languages
+    result["languages"] = merge_list_by_id(
+        original.get("languages"),
+        optimized.get("languages"),
+        ["name", "level"]
+    )
+
+    # Custom sections
+    orig_custom = original.get("custom")
+    opt_custom = optimized.get("custom")
+    if isinstance(orig_custom, list) and isinstance(opt_custom, list):
+        opt_custom_map = {c.get("id"): c for c in opt_custom if isinstance(c, dict) and c.get("id")}
+        new_custom = []
+        for orig_c in orig_custom:
+            if not isinstance(orig_c, dict):
+                new_custom.append(orig_c)
+                continue
+            cid = orig_c.get("id")
+            opt_c = opt_custom_map.get(cid)
+            if opt_c:
+                merged_c = orig_c.copy()
+                if "title" in opt_c:
+                    merged_c["title"] = opt_c["title"]
+
+                orig_items = orig_c.get("items")
+                opt_items = opt_c.get("items")
+                merged_c["items"] = merge_list_by_id(
+                    orig_items,
+                    opt_items,
+                    ["title", "subtitle", "date", "description"]
+                )
+                new_custom.append(merged_c)
+            else:
+                new_custom.append(orig_c)
+        result["custom"] = new_custom
+
+    return result
 
 
 # ─── Parse normalizer ─────────────────────────────────────────────────────────
@@ -398,16 +715,16 @@ def _heuristic_score(
     r = resume or {}
     strengths: list[str] = []
     improvements: list[str] = []
-    score = 40
+    score = 25
 
     p = r.get("personal") or {}
     if p.get("fullName"):
-        score += 4
+        score += 3
         strengths.append("Clear contact header with full name.")
     else:
         improvements.append("Add your full name to the personal section.")
     if p.get("email"):
-        score += 3
+        score += 2
     else:
         improvements.append("Add a professional email so recruiters can reach you.")
     if p.get("phone"):
@@ -422,23 +739,23 @@ def _heuristic_score(
 
     summary = r.get("summary") or ""
     if isinstance(summary, str) and len(summary) > 80:
-        score += 6
+        score += 4
         strengths.append("Summary is present and meaningfully developed.")
     else:
         improvements.append("Add a 2–4 sentence professional summary tailored to the role.")
 
     exp = r.get("experience") or []
     if len(exp) >= 2:
-        score += 8
+        score += 6
         strengths.append(f"{len(exp)} work experience entries listed.")
     elif len(exp) == 1:
-        score += 4
+        score += 3
     else:
         improvements.append("Add at least one experience entry with measurable bullet points.")
 
     total_bullets = sum(len(e.get("bullets") or []) for e in exp)
     if total_bullets >= 5:
-        score += 8
+        score += 6
         strengths.append("Bullet points present across experience.")
     else:
         improvements.append("Use 3–5 quantified bullet points per role (numbers, %, $).")
@@ -446,26 +763,43 @@ def _heuristic_score(
     numeric_bullets = [
         b for e in exp for b in (e.get("bullets") or []) if re.search(r"\d", b)
     ]
-    if len(numeric_bullets) >= 3:
-        score += 6
-        strengths.append("Bullets include quantified impact (numbers/percentages).")
+    if len(numeric_bullets) >= 4:
+        score += 8
+        strengths.append("Bullets include strong quantified impact metrics.")
+    elif len(numeric_bullets) >= 2:
+        score += 4
+        strengths.append("Some bullet points contain numeric metrics.")
     else:
-        improvements.append("Quantify more achievements with concrete metrics.")
+        improvements.append("Quantify achievements with concrete metrics (%, $, numbers) to improve ATS score.")
+
+    # Check for repeating overused verbs
+    all_bullets_text = " ".join([b.lower() for e in exp for b in (e.get("bullets") or [])])
+    words = [w for w in re.findall(r"[a-z]+", all_bullets_text) if len(w) > 3]
+    word_counts = {}
+    for w in words:
+        word_counts[w] = word_counts.get(w, 0) + 1
+    overused = [w for w, count in word_counts.items() if count >= 3 and w in ["led", "managed", "worked", "assisted", "responsible"]]
+    if overused:
+        score -= 5 * len(overused)
+        improvements.append(f"Avoid repeating overused verbs like {', '.join(overused)}. Use more dynamic active verbs.")
+    elif exp:
+        score += 4
+        strengths.append("Good variety of action verbs used across experience bullet points.")
 
     skills_count = sum(len(g.get("items") or []) for g in (r.get("skills") or []))
     if skills_count >= 8:
-        score += 6
+        score += 5
         strengths.append(f"Strong skills section with {skills_count} items.")
     else:
         improvements.append("List at least 8 ATS-friendly hard skills.")
 
     if r.get("education"):
-        score += 4
+        score += 3
     else:
         improvements.append("Include education or relevant credentials.")
 
     if r.get("projects"):
-        score += 3
+        score += 2
     if r.get("achievements"):
         score += 2
     if r.get("certifications"):
@@ -479,7 +813,7 @@ def _heuristic_score(
         resume_text = json.dumps(r).lower()
         matched = [w for w in jd_words if w in resume_text]
         ratio = len(matched) / max(len(jd_words), 1)
-        score += round(ratio * 12)
+        score += round(ratio * 15)
         pct = round(ratio * 100)
         if ratio >= 0.5:
             strengths.append(f"Strong keyword overlap with the job description ({pct}%).")

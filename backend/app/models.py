@@ -181,6 +181,14 @@ class AiSkillsRequest(BaseModel):
     existing: Optional[list[str]] = None
 
 
+class AiBulletsRequest(BaseModel):
+    role: Optional[str] = None
+    company: Optional[str] = None
+    description: Optional[str] = None
+    technologies: Optional[list[str]] = None
+    count: Optional[int] = 4
+
+
 class AiGrammarRequest(BaseModel):
     text: str
 
@@ -194,14 +202,26 @@ class AiParseRequest(BaseModel):
     text: str
 
 
+class AiOptimizeRequest(BaseModel):
+    resume: ResumeData
+    layout: Optional[str] = "single"
+    fontSize: Optional[float] = 11.0
+    customInstructions: Optional[str] = None
+
+
 # ─── AI response bodies ───────────────────────────────────────────────────────
 
 class AiTextResponse(BaseModel):
     text: str
 
 
+
 class AiSkillsResponse(BaseModel):
     skills: list[str]
+
+
+class AiBulletsResponse(BaseModel):
+    bullets: list[str]
 
 
 class AiScoreResponse(BaseModel):
@@ -212,6 +232,11 @@ class AiScoreResponse(BaseModel):
 
 class AiParseResponse(BaseModel):
     data: dict[str, Any]
+
+
+class AiOptimizeResponse(BaseModel):
+    data: ResumeData
+
 
 
 # ─── Template ─────────────────────────────────────────────────────────────────

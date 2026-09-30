@@ -129,6 +129,7 @@ export async function exportResumeAsPdf(resume: Resume): Promise<void> {
     })
     .join("\n");
 
+
   const res = await fetch(`${BASE}/api/resume/generate-pdf`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -286,6 +287,20 @@ export function useAiSuggestSkills(): UseMutationResult<
   });
 }
 
+export function useAiGenerateBullets(): UseMutationResult<
+  { bullets: string[] },
+  Error,
+  { data: { role?: string; company?: string; description?: string; technologies?: string[]; count?: number } }
+> {
+  return useMutation({
+    mutationFn: ({ data }) =>
+      apiFetch<{ bullets: string[] }>("/api/ai/bullets", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  });
+}
+
 export function useAiFixGrammar(): UseMutationResult<
   { text: string },
   Error,
@@ -329,6 +344,20 @@ export function useAiParseResume(): UseMutationResult<
   return useMutation({
     mutationFn: ({ data }) =>
       apiFetch<{ data: Record<string, unknown> }>("/api/ai/parse", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  });
+}
+
+export function useAiOptimizeResume(): UseMutationResult<
+  { data: ResumeData },
+  Error,
+  { data: { resume: ResumeData; layout?: string; fontSize?: number; customInstructions?: string } }
+> {
+  return useMutation({
+    mutationFn: ({ data }) =>
+      apiFetch<{ data: ResumeData }>("/api/ai/optimize-resume", {
         method: "POST",
         body: JSON.stringify(data),
       }),
