@@ -11,6 +11,7 @@ import {
   useAiSuggestSkills,
   useAiFixGrammar,
   useAiAtsScore,
+  useAiOptimizeAts,
   useAiParseResume,
   exportResumeAsPdf,
   exportResumeAsDocx,
@@ -83,6 +84,8 @@ import {
   Save,
   Eye,
   Loader2,
+  ArrowUp,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FONT_OPTIONS, SECTION_LABELS, uid, deduplicateSectionOrder, sanitizeResumeData } from "@/lib/types";
@@ -341,6 +344,7 @@ export default function Builder() {
         open={scoreOpen}
         onOpenChange={setScoreOpen}
         data={data}
+        onEnhanced={(optimized) => patchData(optimized)}
       />
 
       {/* Section Reorder Dialog (Mobile/Tablet only) */}
@@ -1567,10 +1571,33 @@ function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function AtsScoreDialog({ open, onOpenChange, data }: { open: boolean; onOpenChange: (v: boolean) => void; data: ResumeData }) {
+function AtsScoreDialog({
+  open,
+  onOpenChange,
+  data,
+  onEnhanced,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  data: ResumeData;
+  onEnhanced: (data: ResumeData) => void;
+}) {
   const score = useAiAtsScore();
+  const optimize = useAiOptimizeAts();
   const [job, setJob] = useState("");
   const [result, setResult] = useState<{ score: number; strengths: string[]; improvements: string[] } | null>(null);
+  const [enhancement, setEnhancement] = useState<{
+    previousScore: number;
+    score: number;
+    changes: string[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setResult(null);
+      setEnhancement(null);
+    }
+  }, [open]);
 
   const tone = useMemo(() => {
     const s = result?.score ?? 0;
@@ -1579,32 +1606,138 @@ function AtsScoreDialog({ open, onOpenChange, data }: { open: boolean; onOpenCha
     return "text-destructive";
   }, [result]);
 
+  const busy = score.isPending || optimize.isPending;
+  const scoreDelta = enhancement ? enhancement.score - enhancement.previousScore : null;
+
+  async function analyze() {
+    try {
+      const out = await score.mutateAsync({ data: { resume: data, jobDescription: job || undefined } });
+      setResult(out);
+      setEnhancement(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "ATS analysis failed");
+    }
+  }
+
+  async function enhance() {
+    try {
+      const out = await optimize.mutateAsync({
+        data: {
+          resume: data,
+          jobDescription: job || undefined,
+          currentScore: result?.score,
+          feedback: result?.improvements,
+        },
+      });
+
+      // Update the editor first, then display the server's fresh analysis of
+      // exactly that enhanced version. The normal autosave flow persists it.
+      onEnhanced(out.data);
+      setResult({
+        score: out.score,
+        strengths: out.strengths,
+        improvements: out.improvements,
+      });
+      setEnhancement({
+        previousScore: out.previousScore,
+        score: out.score,
+        changes: out.changes,
+      });
+      const delta = out.score - out.previousScore;
+      toast.success(
+        delta > 0
+          ? `Resume enhanced — ATS score increased by ${delta} point${delta === 1 ? "" : "s"}.`
+          : "Resume enhanced and reanalyzed. Review the updated score and content.",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "AI enhancement failed");
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent aria-describedby={undefined} className="max-w-xl w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>ATS Score</DialogTitle>
+          <DialogTitle>ATS score & AI enhancement</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <Label>Job description (optional)</Label>
-          <Textarea rows={4} value={job} onChange={(e) => setJob(e.target.value)} placeholder="Paste a job description for a tailored score." />
-          <Button
-            disabled={score.isPending}
-            className="gap-1.5"
-            onClick={async () => {
-              try {
-                const out = await score.mutateAsync({ data: { resume: data, jobDescription: job || undefined } });
-                setResult(out);
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : "Failed");
-              }
-            }}
-          >
-            <Sparkles className="size-4" /> {score.isPending ? "Analyzing…" : "Analyze"}
-          </Button>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Job description (optional)</Label>
+            <Textarea
+              rows={5}
+              value={job}
+              onChange={(e) => {
+                setJob(e.target.value);
+                setResult(null);
+                setEnhancement(null);
+              }}
+              placeholder="Paste a job description for tailored scoring and keyword optimization."
+            />
+          </div>
+
+          <div className="rounded-lg border bg-muted/30 p-3 flex gap-3">
+            <ShieldCheck className="size-5 text-primary shrink-0 mt-0.5" />
+            <div>
+              <div className="text-sm font-medium">Truthful, ATS-safe editing</div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                AI rewrites your existing summary and bullets, applies supported keywords, updates the resume,
+                then scores the enhanced version. It will not intentionally invent experience or metrics.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              disabled={busy}
+              className="gap-1.5 sm:flex-1"
+              onClick={analyze}
+            >
+              {score.isPending ? <Loader2 className="size-4 animate-spin" /> : <ListChecks className="size-4" />}
+              {score.isPending ? "Analyzing…" : result ? "Analyze again" : "Analyze score"}
+            </Button>
+            <Button
+              disabled={busy}
+              className="gap-1.5 sm:flex-1"
+              onClick={enhance}
+            >
+              {optimize.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              {optimize.isPending ? "Enhancing & rescoring…" : "Get a higher ATS score"}
+            </Button>
+          </div>
+
+          {optimize.isPending && (
+            <div className="text-xs text-muted-foreground text-center">
+              AI is improving the resume and will automatically run a fresh ATS analysis.
+            </div>
+          )}
+
           {result && (
-            <div className="pt-2">
-              <div className={`text-5xl font-bold ${tone}`}>{result.score}<span className="text-base text-muted-foreground">/100</span></div>
+            <div className="pt-2 border-t">
+              <div className="flex items-end gap-3 flex-wrap">
+                <div className={`text-5xl font-bold ${tone}`}>
+                  {result.score}<span className="text-base text-muted-foreground">/100</span>
+                </div>
+                {scoreDelta !== null && (
+                  <Badge
+                    variant="secondary"
+                    className={scoreDelta > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}
+                  >
+                    {scoreDelta > 0 && <ArrowUp className="size-3 mr-1" />}
+                    {scoreDelta > 0 ? `+${scoreDelta}` : scoreDelta === 0 ? "No score change" : `${scoreDelta}`} after AI
+                  </Badge>
+                )}
+              </div>
+
+              {enhancement?.changes.length ? (
+                <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <div className="text-sm font-semibold">Resume updated</div>
+                  <ul className="list-disc ml-5 text-sm space-y-1 mt-1 text-muted-foreground">
+                    {enhancement.changes.map((change, i) => <li key={i}>{change}</li>)}
+                  </ul>
+                </div>
+              ) : null}
+
               <div className="mt-4">
                 <div className="text-sm font-semibold">Strengths</div>
                 <ul className="list-disc ml-5 text-sm space-y-1 mt-1">
@@ -1612,7 +1745,7 @@ function AtsScoreDialog({ open, onOpenChange, data }: { open: boolean; onOpenCha
                 </ul>
               </div>
               <div className="mt-3">
-                <div className="text-sm font-semibold">Improvements</div>
+                <div className="text-sm font-semibold">Next improvements</div>
                 <ul className="list-disc ml-5 text-sm space-y-1 mt-1">
                   {result.improvements.map((s, i) => <li key={i}>{s}</li>)}
                 </ul>

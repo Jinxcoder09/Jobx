@@ -24,7 +24,7 @@ jobx-python/
 │   │       ├── health.py      # GET  /api/healthz
 │   │       ├── templates.py   # GET  /api/templates
 │   │       ├── resumes.py     # CRUD /api/resumes
-│   │       └── ai.py          # POST /api/ai/{summary,improve,skills,grammar,score,parse}
+│   │       └── ai.py          # POST /api/ai/{summary,improve,skills,grammar,score,optimize,parse}
 │   ├── requirements.txt
 │   └── .env.example
 │
@@ -167,6 +167,7 @@ All routes mounted under `/api` — identical to the original Express server.
 | `POST` | `/api/ai/skills` | Suggest ATS skills |
 | `POST` | `/api/ai/grammar` | Fix grammar & tone |
 | `POST` | `/api/ai/score` | ATS score (Groq + heuristic fallback) |
+| `POST` | `/api/ai/optimize` | Safely enhance resume copy with AI, then re-run the ATS score |
 | `POST` | `/api/ai/parse` | Parse raw resume text → structured data |
 
 ---

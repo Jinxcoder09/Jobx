@@ -300,8 +300,20 @@ export function useAiFixGrammar(): UseMutationResult<
   });
 }
 
+export interface AtsScoreResult {
+  score: number;
+  strengths: string[];
+  improvements: string[];
+}
+
+export interface AtsOptimizeResult extends AtsScoreResult {
+  data: ResumeData;
+  previousScore: number;
+  changes: string[];
+}
+
 export function useAiAtsScore(): UseMutationResult<
-  { score: number; strengths: string[]; improvements: string[] },
+  AtsScoreResult,
   Error,
   { data: { resume?: ResumeData; jobDescription?: string } }
 > {
@@ -313,10 +325,40 @@ export function useAiAtsScore(): UseMutationResult<
         resume: sanitizeResumeData(data.resume),
         jobDescription: typeof data.jobDescription === "string" ? data.jobDescription : undefined,
       };
-      return apiFetch<{ score: number; strengths: string[]; improvements: string[] }>(
+      return apiFetch<AtsScoreResult>(
         "/api/ai/score",
         { method: "POST", body: JSON.stringify(payload) },
       );
+    },
+  });
+}
+
+export function useAiOptimizeAts(): UseMutationResult<
+  AtsOptimizeResult,
+  Error,
+  {
+    data: {
+      resume: ResumeData;
+      jobDescription?: string;
+      currentScore?: number;
+      feedback?: string[];
+    };
+  }
+> {
+  return useMutation({
+    mutationFn: ({ data }) => {
+      const payload = {
+        resume: sanitizeResumeData(data.resume),
+        jobDescription: typeof data.jobDescription === "string" ? data.jobDescription : undefined,
+        currentScore: typeof data.currentScore === "number" ? data.currentScore : undefined,
+        feedback: Array.isArray(data.feedback)
+          ? data.feedback.filter((item): item is string => typeof item === "string")
+          : [],
+      };
+      return apiFetch<AtsOptimizeResult>("/api/ai/optimize", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
     },
   });
 }

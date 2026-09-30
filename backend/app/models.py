@@ -190,6 +190,13 @@ class AiScoreRequest(BaseModel):
     jobDescription: Optional[str] = None
 
 
+class AiOptimizeRequest(BaseModel):
+    resume: ResumeData
+    jobDescription: Optional[str] = Field(default=None, max_length=12000)
+    currentScore: Optional[int] = Field(default=None, ge=0, le=100)
+    feedback: list[str] = Field(default_factory=list, max_length=10)
+
+
 class AiParseRequest(BaseModel):
     text: str
 
@@ -208,6 +215,12 @@ class AiScoreResponse(BaseModel):
     score: int
     strengths: list[str]
     improvements: list[str]
+
+
+class AiOptimizeResponse(AiScoreResponse):
+    data: ResumeData
+    previousScore: int
+    changes: list[str]
 
 
 class AiParseResponse(BaseModel):
