@@ -356,11 +356,24 @@ export function useAiOptimizeResume(): UseMutationResult<
   { data: { resume: ResumeData; layout?: string; fontSize?: number; customInstructions?: string } }
 > {
   return useMutation({
-    mutationFn: ({ data }) =>
-      apiFetch<{ data: ResumeData }>("/api/ai/optimize-resume", {
+    mutationFn: ({ data }) => {
+      // Keep this payload JSON-safe even when this function is called from a
+      // click handler or with resume data imported from an external file.
+      const payload = {
+        resume: sanitizeResumeData(data.resume),
+        layout: data.layout === "two-column" ? "two-column" : "single",
+        fontSize: typeof data.fontSize === "number" && Number.isFinite(data.fontSize)
+          ? data.fontSize
+          : 11,
+        customInstructions: typeof data.customInstructions === "string"
+          ? data.customInstructions
+          : undefined,
+      };
+      return apiFetch<{ data: ResumeData }>("/api/ai/optimize-resume", {
         method: "POST",
-        body: JSON.stringify(data),
-      }),
+        body: JSON.stringify(payload),
+      });
+    },
   });
 }
 

@@ -239,12 +239,18 @@ export default function Builder() {
   const handleOptimizeResume = useCallback(async (customInstructions?: string) => {
     if (!draft) return;
     try {
+      // Button click handlers receive a React event at runtime. Only accept an
+      // actual string here so that an event/DOM node can never enter the API
+      // payload and make JSON.stringify fail with a circular-reference error.
+      const instructions = typeof customInstructions === "string"
+        ? customInstructions.trim()
+        : "";
       const result = await optimizeResume.mutateAsync({
         data: {
           resume: draft.data,
           layout: draft.theme?.layout || "single",
           fontSize: draft.theme?.fontSize || 11,
-          customInstructions: customInstructions || undefined,
+          customInstructions: instructions || undefined,
         },
       });
       patchData(result.data);
@@ -582,7 +588,7 @@ function TopBar({
           <Button
             disabled={optimizing}
             className="gap-1.5 hidden lg:inline-flex bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-0 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
-            onClick={onOptimize}
+            onClick={() => onOptimize()}
           >
             {optimizing ? (
               <>
@@ -620,7 +626,7 @@ function TopBar({
               ATS Score
             </DropdownMenuItem>
             {onOptimize && (
-              <DropdownMenuItem onClick={onOptimize} disabled={optimizing}>
+              <DropdownMenuItem onClick={() => onOptimize()} disabled={optimizing}>
                 {optimizing ? (
                   <>
                     <Loader2 className="size-4 mr-2 animate-spin" />
