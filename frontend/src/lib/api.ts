@@ -25,6 +25,46 @@ import {
 // Vite exposes VITE_API_URL at build time; falls back to same-origin /api
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
+type ApiErrorDetail = {
+  loc?: unknown;
+  msg?: unknown;
+};
+
+function apiErrorMessage(body: unknown, fallback: string): string {
+  if (!body || typeof body !== "object") return fallback;
+
+  const payload = body as { error?: unknown; detail?: unknown };
+  if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
+  if (typeof payload.detail === "string" && payload.detail.trim()) return payload.detail;
+
+  // FastAPI validation errors contain a detail array. Rendering that array
+  // directly produces "[object Object]" and hides the actual invalid field.
+  if (Array.isArray(payload.detail)) {
+    const messages = payload.detail
+      .filter((detail): detail is ApiErrorDetail => Boolean(detail) && typeof detail === "object")
+      .map((detail) => {
+        const location = Array.isArray(detail.loc)
+          ? detail.loc
+              .filter((part): part is string | number => typeof part === "string" || typeof part === "number")
+              .filter((part) => part !== "body")
+              .join(".")
+          : "";
+        const message = typeof detail.msg === "string" ? detail.msg : "Invalid value";
+        return location ? `${location}: ${message}` : message;
+      })
+      .filter(Boolean);
+
+    if (messages.length) return messages.join(" ");
+  }
+
+  return fallback;
+}
+
+async function errorFromResponse(res: Response): Promise<Error> {
+  const body: unknown = await res.json().catch(() => undefined);
+  return new Error(apiErrorMessage(body, `HTTP ${res.status}`));
+}
+
 async function apiFetch<T>(
   path: string,
   init?: RequestInit,
@@ -33,10 +73,7 @@ async function apiFetch<T>(
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
     ...init,
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(body?.error ?? body?.detail ?? `HTTP ${res.status}`);
-  }
+  if (!res.ok) throw await errorFromResponse(res);
   return res.json() as Promise<T>;
 }
 
@@ -52,10 +89,7 @@ export async function downloadDocument(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(resume),
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(body?.error ?? body?.detail ?? `HTTP ${res.status}`);
-  }
+  if (!res.ok) throw await errorFromResponse(res);
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -105,10 +139,7 @@ export async function exportResumeAsPdf(resume: Resume): Promise<void> {
     }),
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(body?.error ?? body?.detail ?? `HTTP ${res.status}`);
-  }
+  if (!res.ok) throw await errorFromResponse(res);
 
   const blob = await res.blob();
   const downloadUrl = window.URL.createObjectURL(blob);
