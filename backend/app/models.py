@@ -111,7 +111,8 @@ class ResumeData(BaseModel):
 
 class Theme(BaseModel):
     fontFamily: str = "Inter"
-    fontSize: int = 11
+    # The editor exposes half-point increments (for example, 12.5pt).
+    fontSize: float = 11
     lineSpacing: float = 1.4
     sectionSpacing: int = 16
     primaryColor: str = "#0f172a"
