@@ -239,22 +239,32 @@ export default function Builder() {
   const handleOptimizeResume = useCallback(async (customInstructions?: string) => {
     if (!draft) return;
     try {
+      // Sanitize before sending: imported/corrupted state can contain values
+      // that break JSON serialization or backend validation, which would make
+      // the request fail silently and leave the resume unchanged.
       const result = await optimizeResume.mutateAsync({
         data: {
-          resume: draft.data,
+          resume: sanitizeResumeData(draft.data),
           layout: draft.theme?.layout || "single",
           fontSize: draft.theme?.fontSize || 11,
           customInstructions: customInstructions || undefined,
         },
       });
-      patchData(result.data);
+      const optimized = sanitizeResumeData(result.data);
+      patchData(optimized);
+      // Persist immediately — don't wait for the debounced autosave. If the
+      // user reloads ("reinitialises") right after optimizing, the improved
+      // content must already be in the database.
+      dirtyRef.current = true;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => saveNow(optimized), 0);
       setAutoAnalyze(true);
       setScoreOpen(true);
       toast.success("Resume optimized for ATS successfully!");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Optimization failed");
     }
-  }, [draft, optimizeResume, patchData]);
+  }, [draft, optimizeResume, patchData, saveNow]);
 
   if (isLoading || !draft)
     return (

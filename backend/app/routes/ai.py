@@ -396,7 +396,11 @@ def calculate_line_chars(layout: str, font_size: float) -> int:
 async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
     import json
 
-    resume_dict = body.resume.model_dump()
+    # Sanitize first: imported resumes can carry extra/non-string values (DOM
+    # nodes, numbers, nested objects) which would otherwise make FastAPI's
+    # response validation fail *after* the AI call succeeded — the client then
+    # receives a 500 and the resume is never updated.
+    resume_dict = ResumeData(**body.resume.model_dump()).model_dump()
     resume_json = json.dumps(resume_dict)
 
     layout = body.layout or "single"
@@ -466,6 +470,11 @@ async def ai_optimize_resume(body: AiOptimizeRequest) -> dict:
             raise ValueError("Groq returned invalid or empty JSON")
 
         optimized_data = _merge_optimized_data(resume_dict, parsed)
+        # Validate the merged result before returning. If the model produced a
+        # malformed structure (e.g. wrong types that break ResumeData), we must
+        # NOT return an invalid payload — FastAPI would raise a 500 *after* the
+        # AI call succeeded and the frontend would show "Optimization failed"
+        # with the resume left untouched.
         return {"data": ResumeData(**optimized_data)}
     except Exception as e:
         logger.warning("Resume optimization failed, falling back to original: %s", e)
@@ -479,18 +488,28 @@ def _merge_optimized_data(original: dict, optimized: dict) -> dict:
     if "summary" in optimized and isinstance(optimized["summary"], str):
         result["summary"] = optimized["summary"]
 
-    # Helper to merge items in lists by ID
+    # Helper to merge items in lists by ID.
+    # NOTE: LLMs frequently drop, rename, or regenerate "id" fields even when
+    # instructed to preserve them. Matching strictly by id then silently keeps
+    # the ORIGINAL (unoptimized) content — which looks exactly like
+    # "optimization did nothing". So we match by id first and fall back to
+    # positional matching so optimized text is always applied.
     def merge_list_by_id(orig_list: list, opt_list: list, fields_to_copy: list[str], list_fields: dict[str, list] = None) -> list:
         if not isinstance(orig_list, list) or not isinstance(opt_list, list):
             return orig_list
-        opt_map = {item.get("id"): item for item in opt_list if isinstance(item, dict) and item.get("id")}
+        opt_items = [item for item in opt_list if isinstance(item, dict)]
+        opt_map = {item.get("id"): item for item in opt_items if item.get("id")}
         new_list = []
-        for orig_item in orig_list:
+        for idx, orig_item in enumerate(orig_list):
             if not isinstance(orig_item, dict):
                 new_list.append(orig_item)
                 continue
             item_id = orig_item.get("id")
             opt_item = opt_map.get(item_id)
+            if opt_item is None and idx < len(opt_items):
+                # No id match — fall back to position so the optimization
+                # still lands on this entry.
+                opt_item = opt_items[idx]
             if opt_item:
                 merged_item = orig_item.copy()
                 for field in fields_to_copy:
@@ -500,6 +519,8 @@ def _merge_optimized_data(original: dict, optimized: dict) -> dict:
                     for field in list_fields.keys():
                         if field in opt_item and isinstance(opt_item[field], list):
                             merged_item[field] = opt_item[field]
+                # Always keep the original id so React keys stay stable.
+                merged_item["id"] = item_id
                 new_list.append(merged_item)
             else:
                 new_list.append(orig_item)
